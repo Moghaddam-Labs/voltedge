@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from voltedge.streaming.broker import BaseBroker
-from voltedge.streaming.events import EnergyEvent, EventType, pipeline_status_event
+from voltedge.streaming.events import EnergyEvent, pipeline_status_event
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -57,28 +57,28 @@ class StreamingPipeline:
 
     def __init__(
         self,
-        broker:             BaseBroker,
-        anomaly_threshold:  float = 0.75,
-        alert_callback:     Any   = None,
-        sites:              list[str] | None = None,
+        broker: BaseBroker,
+        anomaly_threshold: float = 0.75,
+        alert_callback: Any = None,
+        sites: list[str] | None = None,
         model_artifact_dir: str = "data/models",
     ) -> None:
-        self._broker     = broker
-        self._threshold  = anomaly_threshold
-        self._alert_cb   = alert_callback
-        self._sites      = sites or []
-        self._model_dir  = model_artifact_dir
+        self._broker = broker
+        self._threshold = anomaly_threshold
+        self._alert_cb = alert_callback
+        self._sites = sites or []
+        self._model_dir = model_artifact_dir
 
         # Rolling windows: {site_id: deque of recent kwh values}
-        self._windows:  dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_DEPTH))
+        self._windows: dict[str, deque] = defaultdict(lambda: deque(maxlen=WINDOW_DEPTH))
 
         # Loaded anomaly models: {site_id: AnomalyDetector}
-        self._models:   dict[str, Any]   = {}
+        self._models: dict[str, Any] = {}
 
         # Health counters
         self._stats: dict[str, int] = defaultdict(int)
         self._running = False
-        self._tasks:  list[asyncio.Task] = []
+        self._tasks: list[asyncio.Task] = []
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -104,8 +104,9 @@ class StreamingPipeline:
         # Publish startup status
         await self._broker.publish(
             "voltedge.platform.system",
-            pipeline_status_event("streaming_pipeline", "running",
-                                  {"sites": sites, "threshold": self._threshold}),
+            pipeline_status_event(
+                "streaming_pipeline", "running", {"sites": sites, "threshold": self._threshold}
+            ),
         )
 
     async def stop(self) -> None:
@@ -131,8 +132,12 @@ class StreamingPipeline:
                     self._stats["processed"] += 1
                 except Exception as exc:
                     self._stats["errors"] += 1
-                    log.error("pipeline.process_error",
-                              site=site_id, error=str(exc), event_id=raw_event.event_id)
+                    log.error(
+                        "pipeline.process_error",
+                        site=site_id,
+                        error=str(exc),
+                        event_id=raw_event.event_id,
+                    )
         except asyncio.CancelledError:
             log.info("pipeline.site_consumer_stopped", site=site_id)
 
@@ -159,7 +164,7 @@ class StreamingPipeline:
 
         # ── 3. Anomaly scoring ────────────────────────────────────────────────
         score, label = self._score(site_id, features)
-        is_anomaly   = score >= self._threshold
+        is_anomaly = score >= self._threshold
 
         anom_event = raw.as_anomaly(score=score, label=label, is_anomaly=is_anomaly)
         anom_topic = self._broker.topic_for(site_id, "anomaly")
@@ -195,37 +200,35 @@ class StreamingPipeline:
         except (ValueError, AttributeError):
             dt = datetime.now(timezone.utc)
 
-        h   = dt.hour
+        h = dt.hour
         dow = dt.weekday()
         mon = dt.month
 
         features: dict[str, float] = {
             # Cyclic time encoding
-            "hour_sin":         math.sin(2 * math.pi * h   / 24),
-            "hour_cos":         math.cos(2 * math.pi * h   / 24),
-            "dow_sin":          math.sin(2 * math.pi * dow / 7),
-            "dow_cos":          math.cos(2 * math.pi * dow / 7),
-            "month_sin":        math.sin(2 * math.pi * mon / 12),
-            "month_cos":        math.cos(2 * math.pi * mon / 12),
-            "is_weekend":       float(dow >= 5),
+            "hour_sin": math.sin(2 * math.pi * h / 24),
+            "hour_cos": math.cos(2 * math.pi * h / 24),
+            "dow_sin": math.sin(2 * math.pi * dow / 7),
+            "dow_cos": math.cos(2 * math.pi * dow / 7),
+            "month_sin": math.sin(2 * math.pi * mon / 12),
+            "month_cos": math.cos(2 * math.pi * mon / 12),
+            "is_weekend": float(dow >= 5),
             "is_business_hour": float(7 <= h < 19 and dow < 5),
-            "kwh":              event.kwh,
+            "kwh": event.kwh,
         }
 
         # Rolling window statistics
         window = list(self._windows[event.site_id])
         if len(window) >= 2:
-            features["kwh_lag_1"]     = window[-2]
-            features["kwh_delta"]     = event.kwh - window[-2]
-            features["kwh_pct_change"] = (
-                (event.kwh - window[-2]) / (abs(window[-2]) + 1e-8) * 100
-            )
+            features["kwh_lag_1"] = window[-2]
+            features["kwh_delta"] = event.kwh - window[-2]
+            features["kwh_pct_change"] = (event.kwh - window[-2]) / (abs(window[-2]) + 1e-8) * 100
         if len(window) >= 6:
             features["kwh_roll_mean_6"] = sum(window[-6:]) / 6
-            features["kwh_roll_std_6"]  = _std(window[-6:])
+            features["kwh_roll_std_6"] = _std(window[-6:])
         if len(window) >= 24:
             features["kwh_roll_mean_24"] = sum(window[-24:]) / 24
-            features["kwh_roll_std_24"]  = _std(window[-24:])
+            features["kwh_roll_std_24"] = _std(window[-24:])
 
         return features
 
@@ -241,6 +244,7 @@ class StreamingPipeline:
         if model:
             try:
                 import numpy as np
+
                 feat_names = list(features.keys())
                 X = np.array([[features[k] for k in feat_names]])
                 # Normalise using the model's scaler if available
@@ -252,7 +256,7 @@ class StreamingPipeline:
                 label = model._classify_anomaly(type("Row", (), features)())
                 return round(score, 4), label
             except Exception:
-                pass   # Fall through to rule-based
+                pass  # Fall through to rule-based
 
         # Rule-based fallback (no model loaded)
         return self._rule_based_score(features)
@@ -279,9 +283,9 @@ class StreamingPipeline:
             score = max(score, 0.85)
             labels.append("flat_line_sensor")
 
-        kwh  = features.get("kwh", 0.0)
+        kwh = features.get("kwh", 0.0)
         if "kwh_roll_mean_24" in features:
-            mean  = features["kwh_roll_mean_24"]
+            mean = features["kwh_roll_mean_24"]
             ratio = kwh / (mean + 1e-8)
             if ratio > 4.0:
                 score = max(score, 0.90)
@@ -298,8 +302,8 @@ class StreamingPipeline:
         """Attempt to load a pre-trained AnomalyDetector for this site."""
         try:
             from voltedge.models.anomaly import AnomalyDetector
-            detector = AnomalyDetector(site_id=site_id,
-                                       artifact_dir=self._model_dir)
+
+            detector = AnomalyDetector(site_id=site_id, artifact_dir=self._model_dir)
             detector.load()
             self._models[site_id] = detector
             log.info("pipeline.model_loaded", site=site_id)
@@ -310,11 +314,11 @@ class StreamingPipeline:
 
     def stats(self) -> dict[str, Any]:
         return {
-            "running":   self._running,
-            "sites":     self._sites,
+            "running": self._running,
+            "sites": self._sites,
             "processed": self._stats["processed"],
             "anomalies": self._stats["anomalies"],
-            "errors":    self._stats["errors"],
+            "errors": self._stats["errors"],
         }
 
     def window_size(self, site_id: str) -> int:
@@ -322,6 +326,7 @@ class StreamingPipeline:
 
 
 # ── Utility ───────────────────────────────────────────────────────────────────
+
 
 def _std(values: list[float]) -> float:
     n = len(values)

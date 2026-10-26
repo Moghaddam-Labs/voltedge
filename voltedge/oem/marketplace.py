@@ -29,7 +29,6 @@ References:
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -41,51 +40,54 @@ log = get_logger(__name__)
 
 # ── Marketplace constants ─────────────────────────────────────────────────────
 
-PRODUCT_CODE = "voltedge-energy-platform"   # Set in AWS Marketplace console
+PRODUCT_CODE = "voltedge-energy-platform"  # Set in AWS Marketplace console
 
 DIMENSIONS = {
-    "active_sites":   "Number of actively monitored sites (per hour)",
-    "api_calls":      "API calls in thousands (per hour)",
-    "data_gb":        "Energy data processed in GB (per hour)",
+    "active_sites": "Number of actively monitored sites (per hour)",
+    "api_calls": "API calls in thousands (per hour)",
+    "data_gb": "Energy data processed in GB (per hour)",
     "ml_predictions": "ML model inferences in thousands (per hour)",
 }
 
 
 # ── Data models ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class UsageRecord:
     """Single metering record for one tenant + dimension."""
+
     customer_identifier: str
-    dimension:           str
-    quantity:            int
-    timestamp:           datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    transaction_id:      str = field(default="")
+    dimension: str
+    quantity: int
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    transaction_id: str = field(default="")
 
     def __post_init__(self):
         if not self.transaction_id:
             # Deterministic ID for idempotency
-            raw = f"{self.customer_identifier}-{self.dimension}-{self.timestamp.strftime('%Y%m%d%H')}"
+            raw = (
+                f"{self.customer_identifier}-{self.dimension}-{self.timestamp.strftime('%Y%m%d%H')}"
+            )
             self.transaction_id = hashlib.sha256(raw.encode()).hexdigest()[:32]
 
     @property
     def is_valid(self) -> bool:
         return (
-            bool(self.customer_identifier)
-            and self.dimension in DIMENSIONS
-            and self.quantity >= 0
+            bool(self.customer_identifier) and self.dimension in DIMENSIONS and self.quantity >= 0
         )
 
 
 @dataclass
 class MeteringResult:
     """Result of a batch_meter_usage call."""
-    success:          bool
+
+    success: bool
     records_submitted: int
-    records_failed:    int
-    failed_records:    list[dict] = field(default_factory=list)
-    response_raw:      dict       = field(default_factory=dict)
-    dry_run:           bool       = False
+    records_failed: int
+    failed_records: list[dict] = field(default_factory=list)
+    response_raw: dict = field(default_factory=dict)
+    dry_run: bool = False
 
     @property
     def success_rate(self) -> float:
@@ -94,6 +96,7 @@ class MeteringResult:
 
 
 # ── Metering service ──────────────────────────────────────────────────────────
+
 
 class MarketplaceMeteringService:
     """
@@ -106,7 +109,7 @@ class MarketplaceMeteringService:
         aws_access_key_id / aws_secret_access_key: Optional credential override.
     """
 
-    MARKETPLACE_REGION = "us-east-1"   # AWS Marketplace Metering always us-east-1
+    MARKETPLACE_REGION = "us-east-1"  # AWS Marketplace Metering always us-east-1
 
     def __init__(
         self,
@@ -117,11 +120,11 @@ class MarketplaceMeteringService:
         aws_secret_access_key: str | None = None,
     ) -> None:
         self.product_code = product_code
-        self.region       = region
-        self.dry_run      = dry_run
-        self._aws_key     = aws_access_key_id
-        self._aws_secret  = aws_secret_access_key
-        self._client      = None   # Lazy-init
+        self.region = region
+        self.dry_run = dry_run
+        self._aws_key = aws_access_key_id
+        self._aws_secret = aws_secret_access_key
+        self._client = None  # Lazy-init
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -138,9 +141,9 @@ class MarketplaceMeteringService:
         if self.dry_run:
             fake_id = hashlib.sha256(registration_token.encode()).hexdigest()[:16]
             result = {
-                "customer_id":  f"aws-cust-{fake_id}",
+                "customer_id": f"aws-cust-{fake_id}",
                 "product_code": self.product_code,
-                "dimension":    "active_sites",
+                "dimension": "active_sites",
             }
             log.info("marketplace.resolve_customer.dry_run", **result)
             return result
@@ -148,9 +151,9 @@ class MarketplaceMeteringService:
         client = self._get_client()
         resp = client.resolve_customer(RegistrationToken=registration_token)
         return {
-            "customer_id":  resp["CustomerIdentifier"],
+            "customer_id": resp["CustomerIdentifier"],
             "product_code": resp["ProductCode"],
-            "dimension":    resp.get("EntitlementData", [{}])[0].get("Dimension", ""),
+            "dimension": resp.get("EntitlementData", [{}])[0].get("Dimension", ""),
         }
 
     def meter_usage(self, record: UsageRecord) -> dict[str, Any]:
@@ -165,13 +168,15 @@ class MarketplaceMeteringService:
         if self.dry_run:
             result = {
                 "MeteringRecordId": record.transaction_id,
-                "Status":           "Success",
-                "DryRun":           True,
+                "Status": "Success",
+                "DryRun": True,
             }
-            log.info("marketplace.meter_usage.dry_run",
-                     customer=record.customer_identifier,
-                     dimension=record.dimension,
-                     quantity=record.quantity)
+            log.info(
+                "marketplace.meter_usage.dry_run",
+                customer=record.customer_identifier,
+                dimension=record.dimension,
+                quantity=record.quantity,
+            )
             return result
 
         client = self._get_client()
@@ -191,16 +196,21 @@ class MarketplaceMeteringService:
         Automatically chunks larger batches.
         """
         if not records:
-            return MeteringResult(success=True, records_submitted=0, records_failed=0,
-                                   dry_run=self.dry_run)
+            return MeteringResult(
+                success=True, records_submitted=0, records_failed=0, dry_run=self.dry_run
+            )
 
         # Validate all records first
-        valid   = [r for r in records if r.is_valid]
+        valid = [r for r in records if r.is_valid]
         invalid = [r for r in records if not r.is_valid]
 
         if self.dry_run:
-            log.info("marketplace.batch_meter.dry_run",
-                     total=len(records), valid=len(valid), invalid=len(invalid))
+            log.info(
+                "marketplace.batch_meter.dry_run",
+                total=len(records),
+                valid=len(valid),
+                invalid=len(invalid),
+            )
             return MeteringResult(
                 success=True,
                 records_submitted=len(valid),
@@ -277,44 +287,52 @@ class MarketplaceMeteringService:
             # active_sites: integer count
             sites = int(usage.get("sites_count", 0))
             if sites > 0:
-                records.append(UsageRecord(
-                    customer_identifier=cid,
-                    dimension="active_sites",
-                    quantity=sites,
-                    timestamp=hour,
-                ))
+                records.append(
+                    UsageRecord(
+                        customer_identifier=cid,
+                        dimension="active_sites",
+                        quantity=sites,
+                        timestamp=hour,
+                    )
+                )
 
             # api_calls: rounded up to nearest 1000
             api_calls = int(usage.get("api_calls_hour", 0))
             api_thousands = max(1, math.ceil(api_calls / 1000)) if api_calls > 0 else 0
             if api_thousands > 0:
-                records.append(UsageRecord(
-                    customer_identifier=cid,
-                    dimension="api_calls",
-                    quantity=api_thousands,
-                    timestamp=hour,
-                ))
+                records.append(
+                    UsageRecord(
+                        customer_identifier=cid,
+                        dimension="api_calls",
+                        quantity=api_thousands,
+                        timestamp=hour,
+                    )
+                )
 
             # data_gb: rounded up to nearest integer GB
             data_gb = math.ceil(float(usage.get("data_gb_hour", 0)))
             if data_gb > 0:
-                records.append(UsageRecord(
-                    customer_identifier=cid,
-                    dimension="data_gb",
-                    quantity=data_gb,
-                    timestamp=hour,
-                ))
+                records.append(
+                    UsageRecord(
+                        customer_identifier=cid,
+                        dimension="data_gb",
+                        quantity=data_gb,
+                        timestamp=hour,
+                    )
+                )
 
             # ml_predictions: rounded up to nearest 1000
             ml_calls = int(usage.get("ml_calls_hour", 0))
             ml_thousands = max(1, math.ceil(ml_calls / 1000)) if ml_calls > 0 else 0
             if ml_thousands > 0:
-                records.append(UsageRecord(
-                    customer_identifier=cid,
-                    dimension="ml_predictions",
-                    quantity=ml_thousands,
-                    timestamp=hour,
-                ))
+                records.append(
+                    UsageRecord(
+                        customer_identifier=cid,
+                        dimension="ml_predictions",
+                        quantity=ml_thousands,
+                        timestamp=hour,
+                    )
+                )
 
         return records
 
@@ -323,9 +341,10 @@ class MarketplaceMeteringService:
     def _get_client(self):
         if self._client is None:
             import boto3
+
             kwargs: dict[str, Any] = {"region_name": self.region}
             if self._aws_key:
-                kwargs["aws_access_key_id"]     = self._aws_key
+                kwargs["aws_access_key_id"] = self._aws_key
                 kwargs["aws_secret_access_key"] = self._aws_secret
             self._client = boto3.client("meteringmarketplace", **kwargs)
         return self._client

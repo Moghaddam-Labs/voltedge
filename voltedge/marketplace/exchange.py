@@ -47,20 +47,20 @@ from typing import Any
 
 
 class BenchmarkSector(str, Enum):
-    UK_MANUFACTURING    = "uk_manufacturing"
-    EU_DATA_CENTRES     = "eu_data_centres"
-    OIL_GAS_UPSTREAM    = "oil_gas_upstream"
-    OFFICE_BUILDINGS    = "office_buildings"
-    COLD_CHAIN          = "cold_chain"
+    UK_MANUFACTURING = "uk_manufacturing"
+    EU_DATA_CENTRES = "eu_data_centres"
+    OIL_GAS_UPSTREAM = "oil_gas_upstream"
+    OFFICE_BUILDINGS = "office_buildings"
+    COLD_CHAIN = "cold_chain"
     CHEMICAL_PROCESSING = "chemical_processing"
 
 
 class BenchmarkMetric(str, Enum):
     KWH_PER_UNIT_OUTPUT = "kwh_per_unit_output"
-    CARBON_INTENSITY    = "carbon_intensity_kgco2_per_kwh"
-    PEAK_DEMAND_KW      = "peak_demand_kw"
-    LOAD_FACTOR         = "load_factor"
-    ANOMALY_RATE        = "anomaly_rate_pct"
+    CARBON_INTENSITY = "carbon_intensity_kgco2_per_kwh"
+    PEAK_DEMAND_KW = "peak_demand_kw"
+    LOAD_FACTOR = "load_factor"
+    ANOMALY_RATE = "anomaly_rate_pct"
     ENERGY_COST_PER_KWH = "energy_cost_per_kwh"
 
 
@@ -74,26 +74,27 @@ DP_EPSILON = 1.0
 @dataclass
 class DataContribution:
     """A single site's anonymised contribution to a benchmark cohort."""
+
     contribution_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    site_hash:       str  = ""     # SHA-256 of site_id (not reversible)
-    sector:          BenchmarkSector = BenchmarkSector.UK_MANUFACTURING
-    metric:          BenchmarkMetric = BenchmarkMetric.KWH_PER_UNIT_OUTPUT
-    value:           float = 0.0
-    period_days:     int   = 30
-    contributed_at:  datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    credits_earned:  float = 1.0
+    site_hash: str = ""  # SHA-256 of site_id (not reversible)
+    sector: BenchmarkSector = BenchmarkSector.UK_MANUFACTURING
+    metric: BenchmarkMetric = BenchmarkMetric.KWH_PER_UNIT_OUTPUT
+    value: float = 0.0
+    period_days: int = 30
+    contributed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    credits_earned: float = 1.0
 
     @classmethod
     def from_site(
         cls,
         site_id: str,
-        sector:  BenchmarkSector,
-        metric:  BenchmarkMetric,
-        value:   float,
+        sector: BenchmarkSector,
+        metric: BenchmarkMetric,
+        value: float,
         period_days: int = 30,
-    ) -> "DataContribution":
+    ) -> DataContribution:
         site_hash = hashlib.sha256(site_id.encode()).hexdigest()[:16]
-        credits = 1.0 + (period_days / 30) * 0.5   # More data → more credits
+        credits = 1.0 + (period_days / 30) * 0.5  # More data → more credits
         return cls(
             site_hash=site_hash,
             sector=sector,
@@ -107,17 +108,18 @@ class DataContribution:
 @dataclass
 class BenchmarkResult:
     """Aggregated benchmark statistics for a cohort."""
-    sector:          BenchmarkSector
-    metric:          BenchmarkMetric
-    cohort_size:     int
-    percentile_10:   float
-    percentile_25:   float
-    median:          float
-    percentile_75:   float
-    percentile_90:   float
-    mean:            float
-    best_in_class:   float
-    computed_at:     datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    sector: BenchmarkSector
+    metric: BenchmarkMetric
+    cohort_size: int
+    percentile_10: float
+    percentile_25: float
+    median: float
+    percentile_75: float
+    percentile_90: float
+    mean: float
+    best_in_class: float
+    computed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def percentile_rank(self, site_value: float, lower_is_better: bool = True) -> float:
         """
@@ -132,17 +134,17 @@ class BenchmarkResult:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "sector":        self.sector.value,
-            "metric":        self.metric.value,
-            "cohort_size":   self.cohort_size,
+            "sector": self.sector.value,
+            "metric": self.metric.value,
+            "cohort_size": self.cohort_size,
             "percentile_10": self.percentile_10,
             "percentile_25": self.percentile_25,
-            "median":        self.median,
+            "median": self.median,
             "percentile_75": self.percentile_75,
             "percentile_90": self.percentile_90,
-            "mean":          self.mean,
+            "mean": self.mean,
             "best_in_class": self.best_in_class,
-            "computed_at":   self.computed_at.isoformat(),
+            "computed_at": self.computed_at.isoformat(),
         }
 
 
@@ -156,10 +158,10 @@ class EnergyMarketplace:
 
     def __init__(self, dp_epsilon: float = DP_EPSILON, seed: int = 42) -> None:
         self._epsilon = dp_epsilon
-        self._rng     = random.Random(seed)
+        self._rng = random.Random(seed)
         # {(sector, metric): [DataContribution]}
         self._contributions: dict[tuple, list[DataContribution]] = {}
-        self._credits: dict[str, float] = {}   # {site_hash: credits}
+        self._credits: dict[str, float] = {}  # {site_hash: credits}
         self._seed_synthetic_data()
 
     # ── Participation ─────────────────────────────────────────────────────────
@@ -171,10 +173,11 @@ class EnergyMarketplace:
         """
         # Add Laplace DP noise to protect individual values
         noisy_value = contribution.value + self._laplace_noise(
-            sensitivity=contribution.value * 0.05,   # 5% sensitivity
+            sensitivity=contribution.value * 0.05,  # 5% sensitivity
             epsilon=self._epsilon,
         )
         from dataclasses import replace
+
         noisy_contrib = replace(contribution, value=max(0.0, noisy_value))
 
         key = (contribution.sector, contribution.metric)
@@ -201,13 +204,13 @@ class EnergyMarketplace:
         Return benchmark statistics for a cohort.
         Returns None if cohort_size < MIN_COHORT_SIZE (k-anonymity).
         """
-        key     = (sector, metric)
+        key = (sector, metric)
         contribs = self._contributions.get(key, [])
         if len(contribs) < MIN_COHORT_SIZE:
             return None
 
         values = sorted(c.value for c in contribs)
-        n      = len(values)
+        n = len(values)
 
         def pct(p):
             i = (p / 100) * (n - 1)
@@ -231,8 +234,8 @@ class EnergyMarketplace:
         self,
         site_id: str,
         site_value: float,
-        sector:  BenchmarkSector,
-        metric:  BenchmarkMetric,
+        sector: BenchmarkSector,
+        metric: BenchmarkMetric,
         lower_is_better: bool = True,
     ) -> dict[str, Any]:
         """
@@ -241,45 +244,51 @@ class EnergyMarketplace:
         benchmark = self.get_benchmark(sector, metric)
         if benchmark is None:
             return {
-                "site_id":     site_id,
-                "site_value":  site_value,
-                "rank":        None,
-                "message":     f"Cohort too small (< {MIN_COHORT_SIZE}). Contribute data to unlock.",
+                "site_id": site_id,
+                "site_value": site_value,
+                "rank": None,
+                "message": f"Cohort too small (< {MIN_COHORT_SIZE}). Contribute data to unlock.",
             }
 
         rank = benchmark.percentile_rank(site_value, lower_is_better)
         tier = (
-            "top_10"    if rank <= 10  else
-            "top_25"    if rank <= 25  else
-            "median"    if rank <= 60  else
-            "bottom_25" if rank <= 75  else
-            "bottom_10"
+            "top_10"
+            if rank <= 10
+            else "top_25"
+            if rank <= 25
+            else "median"
+            if rank <= 60
+            else "bottom_25"
+            if rank <= 75
+            else "bottom_10"
         )
 
         return {
-            "site_id":       site_id,
-            "sector":        sector.value,
-            "metric":        metric.value,
-            "site_value":    site_value,
+            "site_id": site_id,
+            "sector": sector.value,
+            "metric": metric.value,
+            "site_value": site_value,
             "percentile_rank": rank,
-            "tier":          tier,
-            "cohort_size":   benchmark.cohort_size,
+            "tier": tier,
+            "cohort_size": benchmark.cohort_size,
             "benchmark": {
-                "p10":    benchmark.percentile_10,
+                "p10": benchmark.percentile_10,
                 "median": benchmark.median,
-                "p90":    benchmark.percentile_90,
-                "best":   benchmark.best_in_class,
+                "p90": benchmark.percentile_90,
+                "best": benchmark.best_in_class,
             },
-            "vs_median_pct": round((site_value - benchmark.median) / (benchmark.median + 1e-8) * 100, 1),
+            "vs_median_pct": round(
+                (site_value - benchmark.median) / (benchmark.median + 1e-8) * 100, 1
+            ),
         }
 
     def available_benchmarks(self) -> list[dict[str, Any]]:
         return [
             {
-                "sector":       k[0].value,
-                "metric":       k[1].value,
-                "cohort_size":  len(v),
-                "available":    len(v) >= MIN_COHORT_SIZE,
+                "sector": k[0].value,
+                "metric": k[1].value,
+                "cohort_size": len(v),
+                "available": len(v) >= MIN_COHORT_SIZE,
             }
             for k, v in self._contributions.items()
         ]
@@ -301,20 +310,24 @@ class EnergyMarketplace:
         for val in [0.185, 0.198, 0.210, 0.225, 0.240, 0.195, 0.230, 0.215, 0.205, 0.220]:
             self._contributions.setdefault(
                 (BenchmarkSector.UK_MANUFACTURING, BenchmarkMetric.CARBON_INTENSITY), []
-            ).append(DataContribution(
-                site_hash=f"seed_{val:.3f}",
-                sector=BenchmarkSector.UK_MANUFACTURING,
-                metric=BenchmarkMetric.CARBON_INTENSITY,
-                value=val,
-            ))
+            ).append(
+                DataContribution(
+                    site_hash=f"seed_{val:.3f}",
+                    sector=BenchmarkSector.UK_MANUFACTURING,
+                    metric=BenchmarkMetric.CARBON_INTENSITY,
+                    value=val,
+                )
+            )
 
         # EU data centres: PUE (load factor proxy)
         for val in [0.85, 0.78, 0.82, 0.90, 0.75, 0.88, 0.71, 0.93, 0.80, 0.77]:
             self._contributions.setdefault(
                 (BenchmarkSector.EU_DATA_CENTRES, BenchmarkMetric.LOAD_FACTOR), []
-            ).append(DataContribution(
-                site_hash=f"seed_{val:.3f}",
-                sector=BenchmarkSector.EU_DATA_CENTRES,
-                metric=BenchmarkMetric.LOAD_FACTOR,
-                value=val,
-            ))
+            ).append(
+                DataContribution(
+                    site_hash=f"seed_{val:.3f}",
+                    sector=BenchmarkSector.EU_DATA_CENTRES,
+                    metric=BenchmarkMetric.LOAD_FACTOR,
+                    value=val,
+                )
+            )

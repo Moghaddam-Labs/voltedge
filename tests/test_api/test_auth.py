@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta, datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,9 +10,14 @@ from jose import jwt
 
 from voltedge.api.app import create_app
 from voltedge.api.auth import (
-    authenticate_user, create_access_token, decode_token,
-    hash_password, verify_password,
-    SECRET_KEY, ALGORITHM, VALID_SCOPES,
+    ALGORITHM,
+    SECRET_KEY,
+    VALID_SCOPES,
+    authenticate_user,
+    create_access_token,
+    decode_token,
+    hash_password,
+    verify_password,
 )
 
 
@@ -22,6 +27,7 @@ def client():
 
 
 # ── Password hashing ──────────────────────────────────────────────────────────
+
 
 def test_hash_and_verify_correct_password():
     hashed = hash_password("my-secret")
@@ -40,6 +46,7 @@ def test_hashes_are_unique():
 
 
 # ── Token creation ────────────────────────────────────────────────────────────
+
 
 def test_create_token_returns_string():
     token = create_access_token("alice", scopes=["read"])
@@ -79,6 +86,7 @@ def test_token_rejects_invalid_scope():
 
 # ── Token decoding ────────────────────────────────────────────────────────────
 
+
 def test_decode_valid_token():
     token = create_access_token("alice", scopes=["read", "admin"])
     data = decode_token(token)
@@ -89,8 +97,10 @@ def test_decode_valid_token():
 
 def test_decode_expired_token_raises_401():
     from fastapi import HTTPException
+
     expired_token = create_access_token(
-        "grace", scopes=["read"],
+        "grace",
+        scopes=["read"],
         expires_delta=timedelta(seconds=-1),
     )
     with pytest.raises(HTTPException) as exc_info:
@@ -100,6 +110,7 @@ def test_decode_expired_token_raises_401():
 
 def test_decode_garbage_token_raises_401():
     from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         decode_token("not.a.valid.jwt")
     assert exc_info.value.status_code == 401
@@ -107,6 +118,7 @@ def test_decode_garbage_token_raises_401():
 
 def test_decode_tampered_token_raises_401():
     from fastapi import HTTPException
+
     token = create_access_token("legit", scopes=["read"])
     tampered = token[:-5] + "XXXXX"
     with pytest.raises(HTTPException):
@@ -114,6 +126,7 @@ def test_decode_tampered_token_raises_401():
 
 
 # ── User authentication ───────────────────────────────────────────────────────
+
 
 def test_authenticate_valid_admin():
     user = authenticate_user("admin", "admin-secret")
@@ -140,9 +153,9 @@ def test_authenticate_unknown_user_returns_none():
 
 # ── /auth/token endpoint ──────────────────────────────────────────────────────
 
+
 def test_login_returns_token(client):
-    r = client.post("/auth/token",
-                    data={"username": "admin", "password": "admin-secret"})
+    r = client.post("/auth/token", data={"username": "admin", "password": "admin-secret"})
     assert r.status_code == 200
     body = r.json()
     assert "access_token" in body
@@ -151,20 +164,17 @@ def test_login_returns_token(client):
 
 
 def test_login_wrong_credentials_returns_401(client):
-    r = client.post("/auth/token",
-                    data={"username": "admin", "password": "wrong"})
+    r = client.post("/auth/token", data={"username": "admin", "password": "wrong"})
     assert r.status_code == 401
 
 
 def test_login_unknown_user_returns_401(client):
-    r = client.post("/auth/token",
-                    data={"username": "ghost", "password": "any"})
+    r = client.post("/auth/token", data={"username": "ghost", "password": "any"})
     assert r.status_code == 401
 
 
 def test_login_analyst_has_read_scope_only(client):
-    r = client.post("/auth/token",
-                    data={"username": "analyst", "password": "analyst-secret"})
+    r = client.post("/auth/token", data={"username": "analyst", "password": "analyst-secret"})
     token = r.json()["access_token"]
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     assert payload["scopes"] == ["read"]
@@ -173,18 +183,19 @@ def test_login_analyst_has_read_scope_only(client):
 
 # ── Protected route integration ───────────────────────────────────────────────
 
+
 def test_protected_route_without_token_returns_401(client):
     """Sites list is currently open, but test auth machinery via /ready."""
     # Simulate a secured route by manually checking require_auth behaviour
     from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         decode_token("missing")
     assert exc_info.value.status_code == 401
 
 
 def test_token_from_login_is_decodable(client):
-    r = client.post("/auth/token",
-                    data={"username": "operator", "password": "operator-secret"})
+    r = client.post("/auth/token", data={"username": "operator", "password": "operator-secret"})
     token = r.json()["access_token"]
     data = decode_token(token)
     assert data.username == "operator"
@@ -193,8 +204,10 @@ def test_token_from_login_is_decodable(client):
 
 # ── Scope enforcement ─────────────────────────────────────────────────────────
 
+
 def test_require_scope_passes_for_correct_scope():
     from voltedge.api.auth import require_scope
+
     token = create_access_token("alice", scopes=["admin"])
     checker = require_scope("admin")
     user = checker(token=token)
@@ -203,7 +216,9 @@ def test_require_scope_passes_for_correct_scope():
 
 def test_require_scope_raises_403_for_missing_scope():
     from fastapi import HTTPException
+
     from voltedge.api.auth import require_scope
+
     token = create_access_token("analyst", scopes=["read"])
     checker = require_scope("admin")
     with pytest.raises(HTTPException) as exc_info:

@@ -7,6 +7,7 @@ Store is overridden with a tmp LocalStore per test.
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -16,8 +17,8 @@ from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
 from voltedge.storage.base import LocalStore
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def tmp_store(tmp_path):
@@ -47,6 +48,7 @@ def seeded_client(tmp_store):
 
 # ── Health ────────────────────────────────────────────────────────────────────
 
+
 def test_health_returns_200(client):
     r = client.get("/health")
     assert r.status_code == 200
@@ -68,13 +70,17 @@ def test_health_has_correct_content_type(client):
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
+
 def test_simulate_creates_data(client):
-    r = client.post("/pipeline/simulate", json={
-        "site_id": "API-SITE-01",
-        "site_type": "factory",
-        "hours": 48,
-        "seed": 42,
-    })
+    r = client.post(
+        "/pipeline/simulate",
+        json={
+            "site_id": "API-SITE-01",
+            "site_type": "factory",
+            "hours": 48,
+            "seed": 42,
+        },
+    )
     assert r.status_code == 201
     body = r.json()
     assert body["site_id"] == "API-SITE-01"
@@ -83,36 +89,37 @@ def test_simulate_creates_data(client):
 
 
 def test_simulate_office_site(client):
-    r = client.post("/pipeline/simulate", json={
-        "site_id": "OFFICE-01", "site_type": "office", "hours": 24
-    })
+    r = client.post(
+        "/pipeline/simulate", json={"site_id": "OFFICE-01", "site_type": "office", "hours": 24}
+    )
     assert r.status_code == 201
     assert r.json()["records_ingested"] == 24
 
 
 def test_simulate_all_site_types(client):
     for stype in ["factory", "office", "warehouse", "data_center"]:
-        r = client.post("/pipeline/simulate", json={
-            "site_id": f"SITE-{stype}", "site_type": stype, "hours": 12
-        })
+        r = client.post(
+            "/pipeline/simulate", json={"site_id": f"SITE-{stype}", "site_type": stype, "hours": 12}
+        )
         assert r.status_code == 201, f"Failed for {stype}: {r.text}"
 
 
 def test_simulate_rejects_zero_hours(client):
-    r = client.post("/pipeline/simulate", json={
-        "site_id": "BAD-SITE", "site_type": "factory", "hours": 0
-    })
+    r = client.post(
+        "/pipeline/simulate", json={"site_id": "BAD-SITE", "site_type": "factory", "hours": 0}
+    )
     assert r.status_code == 422
 
 
 def test_simulate_rejects_over_8760_hours(client):
-    r = client.post("/pipeline/simulate", json={
-        "site_id": "BAD-SITE", "site_type": "factory", "hours": 9000
-    })
+    r = client.post(
+        "/pipeline/simulate", json={"site_id": "BAD-SITE", "site_type": "factory", "hours": 9000}
+    )
     assert r.status_code == 422
 
 
 # ── Sites ─────────────────────────────────────────────────────────────────────
+
 
 def test_list_sites_empty(client):
     r = client.get("/sites/")
@@ -158,6 +165,7 @@ def test_get_site_data_rejects_invalid_layer(seeded_client):
 
 # ── Analytics — Forecast ──────────────────────────────────────────────────────
 
+
 def test_forecast_returns_correct_horizon(seeded_client):
     r = seeded_client.post("/analytics/TEST-SITE/forecast?horizon_hours=12")
     assert r.status_code == 200
@@ -192,6 +200,7 @@ def test_forecast_rejects_horizon_over_168(seeded_client):
 
 # ── Analytics — Anomaly ───────────────────────────────────────────────────────
 
+
 def test_anomaly_returns_response(seeded_client):
     r = seeded_client.post("/analytics/TEST-SITE/anomaly")
     assert r.status_code == 200
@@ -216,6 +225,7 @@ def test_anomaly_flagged_have_scores(seeded_client):
 
 # ── Analytics — ESG ───────────────────────────────────────────────────────────
 
+
 def test_esg_returns_metrics(seeded_client):
     r = seeded_client.post("/analytics/TEST-SITE/esg?country=GB")
     assert r.status_code == 200
@@ -237,6 +247,7 @@ def test_esg_different_countries(seeded_client):
 
 
 # ── Analytics — Optimization ──────────────────────────────────────────────────
+
 
 def test_optimize_returns_recommendations(seeded_client):
     r = seeded_client.post("/analytics/TEST-SITE/optimize")
@@ -264,6 +275,7 @@ def test_optimize_404_missing_site(client):
 
 
 # ── OpenAPI schema ────────────────────────────────────────────────────────────
+
 
 def test_openapi_schema_is_accessible(client):
     r = client.get("/openapi.json")

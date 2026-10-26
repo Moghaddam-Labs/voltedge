@@ -28,8 +28,7 @@ For demo/test: uses inject_records() instead of real HTTP.
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -75,15 +74,15 @@ class SAPAdapter(BaseERPAdapter):
         use_mock: bool = False,
     ) -> None:
         super().__init__(site_id=site_id)
-        self.sap_host   = sap_host
-        self.sap_port   = sap_port
+        self.sap_host = sap_host
+        self.sap_port = sap_port
         self.sap_client = sap_client
-        self.username   = username
-        self.password   = password
+        self.username = username
+        self.password = password
         self.fl_mapping = fl_mapping or {}
-        self.days_back  = days_back
-        self.timeout    = timeout
-        self.use_mock   = use_mock
+        self.days_back = days_back
+        self.timeout = timeout
+        self.use_mock = use_mock
 
     async def _fetch_raw(self) -> list[dict[str, Any]]:
         if self.use_mock:
@@ -94,9 +93,9 @@ class SAPAdapter(BaseERPAdapter):
             return injected
 
         fl_id = self.fl_mapping.get(self.site_id, self.site_id)
-        now  = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         from_dt = (now - timedelta(days=self.days_back)).strftime("%Y-%m-%dT%H:%M:%S")
-        to_dt   = now.strftime("%Y-%m-%dT%H:%M:%S")
+        to_dt = now.strftime("%Y-%m-%dT%H:%M:%S")
 
         url = (
             f"https://{self.sap_host}:{self.sap_port}{self.ODATA_PATH}"
@@ -159,6 +158,7 @@ class SAPAdapter(BaseERPAdapter):
         Produces hourly readings for the last `days_back` days.
         """
         import random
+
         random.seed(abs(hash(self.site_id)) % 9999)
         now = datetime.now(timezone.utc)
         records = []
@@ -166,14 +166,16 @@ class SAPAdapter(BaseERPAdapter):
             ts = now - timedelta(hours=h)
             epoch_ms = int(ts.timestamp() * 1000)
             kwh = round(random.gauss(350, 40), 3)
-            records.append({
-                "MeterID":           f"SAP-{self.site_id}-METER-01",
-                "FunctionalLocation": self.fl_mapping.get(self.site_id, self.site_id),
-                "ReadingDate":        f"/Date({epoch_ms})/",
-                "ReadingValue":       str(max(0, kwh)),
-                "UnitOfMeasure":      "KWH",
-                "CostCentre":         "CC-OPERATIONS-001",
-                "Currency":           "EUR",
-                "Amount":             str(round(kwh * 0.22, 4)),
-            })
+            records.append(
+                {
+                    "MeterID": f"SAP-{self.site_id}-METER-01",
+                    "FunctionalLocation": self.fl_mapping.get(self.site_id, self.site_id),
+                    "ReadingDate": f"/Date({epoch_ms})/",
+                    "ReadingValue": str(max(0, kwh)),
+                    "UnitOfMeasure": "KWH",
+                    "CostCentre": "CC-OPERATIONS-001",
+                    "Currency": "EUR",
+                    "Amount": str(round(kwh * 0.22, 4)),
+                }
+            )
         return records

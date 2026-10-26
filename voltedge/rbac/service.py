@@ -14,11 +14,10 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Annotated
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
-
-import bcrypt
 
 from voltedge.rbac.models import Base, Permission, Role, User
 from voltedge.utils.logger import get_logger
@@ -29,26 +28,30 @@ log = get_logger(__name__)
 
 PERMISSIONS: list[dict] = [
     # Sites
-    {"resource": "sites",    "action": "read",    "description": "List and read site data"},
-    {"resource": "sites",    "action": "write",   "description": "Write / simulate site data"},
+    {"resource": "sites", "action": "read", "description": "List and read site data"},
+    {"resource": "sites", "action": "write", "description": "Write / simulate site data"},
     # Analytics
-    {"resource": "analytics","action": "read",    "description": "Run forecast, anomaly, ESG, optimize"},
-    {"resource": "analytics","action": "write",   "description": "Configure analytics parameters"},
+    {
+        "resource": "analytics",
+        "action": "read",
+        "description": "Run forecast, anomaly, ESG, optimize",
+    },
+    {"resource": "analytics", "action": "write", "description": "Configure analytics parameters"},
     # ESG
-    {"resource": "esg",      "action": "read",    "description": "View ESG metrics"},
-    {"resource": "esg",      "action": "export",  "description": "Export ESG PDF reports"},
+    {"resource": "esg", "action": "read", "description": "View ESG metrics"},
+    {"resource": "esg", "action": "export", "description": "Export ESG PDF reports"},
     # Pipeline
     {"resource": "pipeline", "action": "trigger", "description": "Trigger data ingestion"},
-    {"resource": "pipeline", "action": "admin",   "description": "Configure pipeline settings"},
+    {"resource": "pipeline", "action": "admin", "description": "Configure pipeline settings"},
     # Models
-    {"resource": "models",   "action": "read",    "description": "View model metadata and metrics"},
-    {"resource": "models",   "action": "retrain", "description": "Trigger model retraining"},
+    {"resource": "models", "action": "read", "description": "View model metadata and metrics"},
+    {"resource": "models", "action": "retrain", "description": "Trigger model retraining"},
     # Users
-    {"resource": "users",    "action": "read",    "description": "List users"},
-    {"resource": "users",    "action": "write",   "description": "Create and update users"},
-    {"resource": "users",    "action": "admin",   "description": "Assign roles, delete users"},
+    {"resource": "users", "action": "read", "description": "List users"},
+    {"resource": "users", "action": "write", "description": "Create and update users"},
+    {"resource": "users", "action": "admin", "description": "Assign roles, delete users"},
     # Audit
-    {"resource": "audit",    "action": "read",    "description": "View audit logs"},
+    {"resource": "audit", "action": "read", "description": "View audit logs"},
 ]
 
 # ── Built-in role definitions ──────────────────────────────────────────────────
@@ -57,23 +60,35 @@ ROLES: dict[str, dict] = {
     "viewer": {
         "description": "Read-only access to sites and analytics",
         "permissions": [
-            "sites:read", "analytics:read", "esg:read", "models:read",
+            "sites:read",
+            "analytics:read",
+            "esg:read",
+            "models:read",
         ],
     },
     "analyst": {
         "description": "Can run analytics and export ESG reports",
         "permissions": [
-            "sites:read", "analytics:read", "analytics:write",
-            "esg:read", "esg:export", "models:read",
+            "sites:read",
+            "analytics:read",
+            "analytics:write",
+            "esg:read",
+            "esg:export",
+            "models:read",
         ],
     },
     "operator": {
         "description": "Can trigger pipelines and retrain models",
         "permissions": [
-            "sites:read", "sites:write",
-            "analytics:read", "analytics:write",
-            "esg:read", "esg:export",
-            "pipeline:trigger", "models:read", "models:retrain",
+            "sites:read",
+            "sites:write",
+            "analytics:read",
+            "analytics:write",
+            "esg:read",
+            "esg:export",
+            "pipeline:trigger",
+            "models:read",
+            "models:retrain",
         ],
     },
     "admin": {
@@ -85,6 +100,7 @@ ROLES: dict[str, dict] = {
 
 # ── Database setup ────────────────────────────────────────────────────────────
 
+
 def _make_engine(db_url: str = "sqlite:///./voltedge_rbac.db"):
     engine = create_engine(
         db_url,
@@ -93,9 +109,11 @@ def _make_engine(db_url: str = "sqlite:///./voltedge_rbac.db"):
     )
     # Enable WAL mode for SQLite (better concurrent read performance)
     if "sqlite" in db_url:
+
         @event.listens_for(engine, "connect")
         def set_wal(dbapi_conn, _):
             dbapi_conn.execute("PRAGMA journal_mode=WAL")
+
     return engine
 
 
@@ -127,6 +145,7 @@ DBDep = Annotated[Session, Depends(get_db)]
 
 # ── Seed ──────────────────────────────────────────────────────────────────────
 
+
 def seed_roles_and_permissions(db: Session) -> None:
     """
     Idempotent: creates built-in permissions and roles if they don't exist.
@@ -135,9 +154,11 @@ def seed_roles_and_permissions(db: Session) -> None:
     # Create permissions
     perm_map: dict[str, Permission] = {}
     for p_def in PERMISSIONS:
-        existing = db.query(Permission).filter_by(
-            resource=p_def["resource"], action=p_def["action"]
-        ).first()
+        existing = (
+            db.query(Permission)
+            .filter_by(resource=p_def["resource"], action=p_def["action"])
+            .first()
+        )
         if not existing:
             perm = Permission(
                 resource=p_def["resource"],
@@ -171,6 +192,7 @@ def seed_roles_and_permissions(db: Session) -> None:
 
 
 # ── User CRUD ─────────────────────────────────────────────────────────────────
+
 
 class RBACService:
     """High-level RBAC operations."""
@@ -262,6 +284,7 @@ class RBACService:
 
 # ── FastAPI dependency ────────────────────────────────────────────────────────
 
+
 def require_permission(resource: str, action: str):
     """
     FastAPI dependency factory: validates JWT + checks RBAC permission.
@@ -271,11 +294,11 @@ def require_permission(resource: str, action: str):
         def get_report(user = Depends(require_permission("esg", "export"))):
             ...
     """
-    from voltedge.api.auth import decode_token, _oauth2_scheme
+    from voltedge.api.auth import _oauth2_scheme, decode_token
 
     def _checker(
         token: Annotated[str, Depends(_oauth2_scheme)],
-        db:    DBDep,
+        db: DBDep,
     ):
         token_data = decode_token(token)
         svc = RBACService(db)

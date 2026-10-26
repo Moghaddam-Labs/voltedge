@@ -52,13 +52,14 @@ DEFAULT_ALPHA = 0.05
 @dataclass
 class CausalEdge:
     """A directed causal relationship between two variables."""
-    cause:      str
-    effect:     str
-    strength:   float       # Standardised regression coefficient (effect size)
-    p_value:    float       # Significance of the edge
-    lag_hours:  int = 0     # Time lag between cause and effect
-    mechanism:  str = ""    # Human-readable description of the mechanism
-    confidence: str = "medium"   # "high" | "medium" | "low"
+
+    cause: str
+    effect: str
+    strength: float  # Standardised regression coefficient (effect size)
+    p_value: float  # Significance of the edge
+    lag_hours: int = 0  # Time lag between cause and effect
+    mechanism: str = ""  # Human-readable description of the mechanism
+    confidence: str = "medium"  # "high" | "medium" | "low"
 
     @property
     def is_significant(self) -> bool:
@@ -66,12 +67,12 @@ class CausalEdge:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "cause":      self.cause,
-            "effect":     self.effect,
-            "strength":   round(self.strength, 4),
-            "p_value":    round(self.p_value, 4),
-            "lag_hours":  self.lag_hours,
-            "mechanism":  self.mechanism,
+            "cause": self.cause,
+            "effect": self.effect,
+            "strength": round(self.strength, 4),
+            "p_value": round(self.p_value, 4),
+            "lag_hours": self.lag_hours,
+            "mechanism": self.mechanism,
             "confidence": self.confidence,
             "significant": self.is_significant,
         }
@@ -83,11 +84,12 @@ class CausalGraph:
     Directed Acyclic Graph of causal relationships for one site.
     Wraps a NetworkX DiGraph with VoltEdge-specific metadata.
     """
-    site_id:    str
-    dag:        nx.DiGraph = field(default_factory=nx.DiGraph)
-    edges:      list[CausalEdge] = field(default_factory=list)
-    variables:  list[str] = field(default_factory=list)
-    n_samples:  int = 0
+
+    site_id: str
+    dag: nx.DiGraph = field(default_factory=nx.DiGraph)
+    edges: list[CausalEdge] = field(default_factory=list)
+    variables: list[str] = field(default_factory=list)
+    n_samples: int = 0
     learned_at: str = ""
 
     def get_causes(self, variable: str) -> list[CausalEdge]:
@@ -121,8 +123,9 @@ class CausalGraph:
         if idx is None:
             return set()
         try:
-            return {self.variables[i] for i in nx.ancestors(self.dag, idx)
-                    if i < len(self.variables)}
+            return {
+                self.variables[i] for i in nx.ancestors(self.dag, idx) if i < len(self.variables)
+            }
         except nx.NodeNotFound:
             return set()
 
@@ -132,8 +135,9 @@ class CausalGraph:
         if idx is None:
             return set()
         try:
-            return {self.variables[i] for i in nx.descendants(self.dag, idx)
-                    if i < len(self.variables)}
+            return {
+                self.variables[i] for i in nx.descendants(self.dag, idx) if i < len(self.variables)
+            }
         except nx.NodeNotFound:
             return set()
 
@@ -143,10 +147,10 @@ class CausalGraph:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "site_id":    self.site_id,
-            "variables":  self.variables,
-            "n_edges":    len(self.edges),
-            "n_samples":  self.n_samples,
+            "site_id": self.site_id,
+            "variables": self.variables,
+            "n_edges": len(self.edges),
+            "n_samples": self.n_samples,
             "learned_at": self.learned_at,
             "edges": [e.to_dict() for e in self.edges],
         }
@@ -169,38 +173,38 @@ class CausalGraphBuilder:
     # These orient edges when the PC algorithm leaves them ambiguous.
     DOMAIN_PRIORS: dict[tuple[str, str], str] = {
         # Weather → consumption (temperature drives HVAC)
-        ("temperature_c", "kwh"):           "temperature_c → kwh",
+        ("temperature_c", "kwh"): "temperature_c → kwh",
         # Shift → consumption (shift start drives load)
-        ("is_business_hour", "kwh"):        "is_business_hour → kwh",
+        ("is_business_hour", "kwh"): "is_business_hour → kwh",
         # Power factor → apparent power (not the reverse)
         ("power_factor", "apparent_power_kva"): "power_factor → apparent_power_kva",
         # Time features → everything (time is exogenous)
-        ("hour_sin", "kwh"):                "hour_sin → kwh",
-        ("hour_cos", "kwh"):                "hour_cos → kwh",
-        ("is_weekend", "kwh"):              "is_weekend → kwh",
+        ("hour_sin", "kwh"): "hour_sin → kwh",
+        ("hour_cos", "kwh"): "hour_cos → kwh",
+        ("is_weekend", "kwh"): "is_weekend → kwh",
     }
 
     # Human-readable mechanism descriptions
     MECHANISMS: dict[tuple[str, str], str] = {
-        ("temperature_c", "kwh"):        "Ambient temperature drives HVAC load",
-        ("is_business_hour", "kwh"):     "Shift activity drives equipment load",
-        ("power_factor", "kwh"):         "Power factor correction affects net draw",
-        ("hour_sin", "kwh"):             "Time-of-day pattern drives base load",
-        ("is_weekend", "kwh"):           "Weekend schedule reduces non-essential load",
-        ("kwh_lag_1h", "kwh"):           "Autoregressive: prior hour predicts current",
-        ("voltage_v", "kwh"):            "Voltage variation affects motor efficiency",
-        ("kwh_roll_mean_24h", "kwh"):    "Daily baseline predicts current consumption",
+        ("temperature_c", "kwh"): "Ambient temperature drives HVAC load",
+        ("is_business_hour", "kwh"): "Shift activity drives equipment load",
+        ("power_factor", "kwh"): "Power factor correction affects net draw",
+        ("hour_sin", "kwh"): "Time-of-day pattern drives base load",
+        ("is_weekend", "kwh"): "Weekend schedule reduces non-essential load",
+        ("kwh_lag_1h", "kwh"): "Autoregressive: prior hour predicts current",
+        ("voltage_v", "kwh"): "Voltage variation affects motor efficiency",
+        ("kwh_roll_mean_24h", "kwh"): "Daily baseline predicts current consumption",
     }
 
     def __init__(
         self,
-        alpha:         float = DEFAULT_ALPHA,
-        max_lag_hours: int   = 3,
-        min_samples:   int   = 48,
+        alpha: float = DEFAULT_ALPHA,
+        max_lag_hours: int = 3,
+        min_samples: int = 48,
     ) -> None:
-        self._alpha     = alpha
-        self._max_lag   = max_lag_hours
-        self._min_samp  = min_samples
+        self._alpha = alpha
+        self._max_lag = max_lag_hours
+        self._min_samp = min_samples
 
     def build(self, df: pd.DataFrame, site_id: str) -> CausalGraph:
         """
@@ -225,8 +229,9 @@ class CausalGraphBuilder:
         candidate_cols = self._select_variables(df)
         df_clean = df[candidate_cols].dropna()
 
-        log.info("causal.build_start", site=site_id,
-                 variables=len(candidate_cols), rows=len(df_clean))
+        log.info(
+            "causal.build_start", site=site_id, variables=len(candidate_cols), rows=len(df_clean)
+        )
 
         # Standardise for consistent effect sizes
         df_std = (df_clean - df_clean.mean()) / (df_clean.std() + 1e-8)
@@ -249,8 +254,9 @@ class CausalGraphBuilder:
             learned_at=datetime.now(timezone.utc).isoformat(),
         )
 
-        log.info("causal.build_complete", site=site_id,
-                 edges=len(edges), variables=len(candidate_cols))
+        log.info(
+            "causal.build_complete", site=site_id, edges=len(edges), variables=len(candidate_cols)
+        )
         return graph
 
     # ── PC algorithm implementation ───────────────────────────────────────────
@@ -266,12 +272,8 @@ class CausalGraphBuilder:
         """
         n = len(variables)
         # Start with fully connected undirected graph
-        skeleton  = nx.complete_graph(n)
+        skeleton = nx.complete_graph(n)
         sep_sets: dict[tuple[int, int], set[int]] = {}
-
-        # Map integer indices to variable names
-        idx_to_var = {i: v for i, v in enumerate(variables)}
-        var_to_idx = {v: i for i, v in enumerate(variables)}
 
         data = df.values
         n_obs = len(data)
@@ -280,16 +282,14 @@ class CausalGraphBuilder:
         for depth in range(n - 1):
             edges_to_remove = []
 
-            for (u, v) in list(skeleton.edges()):
+            for u, v in list(skeleton.edges()):
                 neighbours_u = set(skeleton.neighbors(u)) - {v}
                 if len(neighbours_u) < depth:
                     continue
 
                 # Test all subsets of size `depth`
                 for subset in itertools.combinations(neighbours_u, depth):
-                    p_val = self._fisher_z_test(
-                        data, u, v, list(subset), n_obs
-                    )
+                    p_val = self._fisher_z_test(data, u, v, list(subset), n_obs)
                     if p_val > self._alpha:
                         # Conditionally independent — remove edge
                         edges_to_remove.append((u, v))
@@ -305,8 +305,8 @@ class CausalGraphBuilder:
 
     def _orient_edges(
         self,
-        skeleton:  nx.Graph,
-        sep_sets:  dict,
+        skeleton: nx.Graph,
+        sep_sets: dict,
         variables: list[str],
     ) -> nx.DiGraph:
         """
@@ -318,7 +318,7 @@ class CausalGraphBuilder:
         dag.add_nodes_from(skeleton.nodes())
 
         # Start with undirected edges
-        for (u, v) in skeleton.edges():
+        for u, v in skeleton.edges():
             dag.add_edge(u, v)
             dag.add_edge(v, u)
 
@@ -347,12 +347,12 @@ class CausalGraphBuilder:
                     dag.add_edge(ci, ei)
                     dag.remove_edge(ei, ci)
             except ValueError:
-                pass   # Variable not in this dataset
+                pass  # Variable not in this dataset
 
         # Remove remaining bidirectional edges using topological heuristic
-        for (u, v) in list(dag.edges()):
+        for u, v in list(dag.edges()):
             if not dag.has_edge(u, v):
-                continue   # Already removed by a prior iteration
+                continue  # Already removed by a prior iteration
             if dag.has_edge(v, u):
                 u_name = idx_to_var.get(u, str(u))
                 v_name = idx_to_var.get(v, str(v))
@@ -374,8 +374,8 @@ class CausalGraphBuilder:
 
     def _compute_edge_weights(
         self,
-        dag:       nx.DiGraph,
-        df:        pd.DataFrame,
+        dag: nx.DiGraph,
+        df: pd.DataFrame,
     ) -> list[CausalEdge]:
         """
         Compute edge effect sizes via OLS regression of each node
@@ -383,14 +383,14 @@ class CausalGraphBuilder:
         """
         edges: list[CausalEdge] = []
         variables = list(df.columns)
-        data      = df.values
+        data = df.values
 
         for edge in dag.edges():
             u, v = edge
             if u >= len(variables) or v >= len(variables):
                 continue
 
-            cause_name  = variables[u]
+            cause_name = variables[u]
             effect_name = variables[v]
             parents = list(dag.predecessors(v))
 
@@ -408,41 +408,46 @@ class CausalGraphBuilder:
                 coeffs, _, _, _ = np.linalg.lstsq(X_aug, y, rcond=None)
 
                 # Get the coefficient for this specific cause
-                parent_idx  = parents.index(u)
-                beta        = float(coeffs[parent_idx + 1])
+                parent_idx = parents.index(u)
+                beta = float(coeffs[parent_idx + 1])
 
                 # t-statistic for significance
-                y_hat  = X_aug @ coeffs
-                resid  = y - y_hat
-                dof    = max(1, len(y) - len(coeffs))
-                mse    = float(np.sum(resid ** 2) / dof)
+                y_hat = X_aug @ coeffs
+                resid = y - y_hat
+                dof = max(1, len(y) - len(coeffs))
+                mse = float(np.sum(resid**2) / dof)
                 Xtx_inv = np.linalg.pinv(X_aug.T @ X_aug)
                 se = math.sqrt(max(0, mse * Xtx_inv[parent_idx + 1, parent_idx + 1]))
                 t_stat = beta / (se + 1e-8)
-                p_val  = float(2 * stats.t.sf(abs(t_stat), df=dof))
+                p_val = float(2 * stats.t.sf(abs(t_stat), df=dof))
 
                 mechanism = self.MECHANISMS.get(
                     (cause_name, effect_name),
                     f"{cause_name} causally influences {effect_name}",
                 )
                 confidence = (
-                    "high"   if p_val < 0.01 and abs(beta) > 0.3 else
-                    "medium" if p_val < 0.05 else
-                    "low"
+                    "high"
+                    if p_val < 0.01 and abs(beta) > 0.3
+                    else "medium"
+                    if p_val < 0.05
+                    else "low"
                 )
 
-                edges.append(CausalEdge(
-                    cause=cause_name,
-                    effect=effect_name,
-                    strength=round(beta, 4),
-                    p_value=round(p_val, 4),
-                    mechanism=mechanism,
-                    confidence=confidence,
-                ))
+                edges.append(
+                    CausalEdge(
+                        cause=cause_name,
+                        effect=effect_name,
+                        strength=round(beta, 4),
+                        p_value=round(p_val, 4),
+                        mechanism=mechanism,
+                        confidence=confidence,
+                    )
+                )
 
             except Exception as exc:
-                log.debug("causal.edge_weight_error",
-                          cause=cause_name, effect=effect_name, error=str(exc))
+                log.debug(
+                    "causal.edge_weight_error", cause=cause_name, effect=effect_name, error=str(exc)
+                )
 
         return sorted(edges, key=lambda e: abs(e.strength), reverse=True)
 
@@ -450,11 +455,11 @@ class CausalGraphBuilder:
 
     @staticmethod
     def _fisher_z_test(
-        data:      np.ndarray,
-        x:         int,
-        y:         int,
-        cond_set:  list[int],
-        n:         int,
+        data: np.ndarray,
+        x: int,
+        y: int,
+        cond_set: list[int],
+        n: int,
     ) -> float:
         """
         Fisher's Z test for (conditional) independence.
@@ -466,6 +471,7 @@ class CausalGraphBuilder:
             else:
                 # Partial correlation via linear regression residuals
                 z_mat = data[:, cond_set]
+
                 def residuals(col_idx: int) -> np.ndarray:
                     y_vec = data[:, col_idx]
                     X = np.column_stack([np.ones(n), z_mat])
@@ -481,11 +487,11 @@ class CausalGraphBuilder:
             r = max(-0.9999, min(0.9999, r))
             z = 0.5 * math.log((1 + r) / (1 - r))
             dof = max(1, n - len(cond_set) - 2)
-            se  = 1.0 / math.sqrt(dof)
-            p   = float(2 * stats.norm.sf(abs(z / se)))
+            se = 1.0 / math.sqrt(dof)
+            p = float(2 * stats.norm.sf(abs(z / se)))
             return p
         except Exception:
-            return 1.0   # Conservative: assume independent on error
+            return 1.0  # Conservative: assume independent on error
 
     @staticmethod
     def _select_variables(df: pd.DataFrame) -> list[str]:
@@ -493,18 +499,28 @@ class CausalGraphBuilder:
         numeric = df.select_dtypes(include=[np.number]).columns.tolist()
         # Exclude identifiers and binary-only columns with no variance
         preferred = [
-            "kwh", "power_factor", "voltage_v", "temperature_c",
-            "is_business_hour", "is_weekend", "hour_sin", "hour_cos",
-            "kwh_lag_1h", "kwh_roll_mean_24h", "kwh_roll_std_24h",
-            "kwh_delta", "kwh_pct_change",
+            "kwh",
+            "power_factor",
+            "voltage_v",
+            "temperature_c",
+            "is_business_hour",
+            "is_weekend",
+            "hour_sin",
+            "hour_cos",
+            "kwh_lag_1h",
+            "kwh_roll_mean_24h",
+            "kwh_roll_std_24h",
+            "kwh_delta",
+            "kwh_pct_change",
         ]
         selected = [c for c in preferred if c in numeric]
         # Add any other numeric columns not already included
         others = [
-            c for c in numeric
+            c
+            for c in numeric
             if c not in selected
             and not c.startswith("dow_")
             and not c.startswith("month_")
             and df[c].std() > 1e-4
         ]
-        return selected + others[:3]   # cap at ~16 total variables
+        return selected + others[:3]  # cap at ~16 total variables

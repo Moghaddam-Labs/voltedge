@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, UniqueConstraint
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from sqlalchemy import Boolean, DateTime, String, Text, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from voltedge.utils.logger import get_logger
 
@@ -41,27 +41,28 @@ class BrandingBase(DeclarativeBase):
 
 # ── Database model ────────────────────────────────────────────────────────────
 
+
 class TenantBranding(BrandingBase):
     """
     Per-tenant OEM branding configuration.
     One row per partner/customer.
     """
+
     __tablename__ = "tenant_branding"
 
-    id:           Mapped[str] = mapped_column(String, primary_key=True,
-                                               default=lambda: str(uuid.uuid4()))
-    tenant_id:    Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     product_name: Mapped[str] = mapped_column(String, default="VoltEdge")
-    tagline:      Mapped[str] = mapped_column(String, default="Enterprise Energy Intelligence")
-    logo_url:     Mapped[str] = mapped_column(String, default="")
-    favicon_url:  Mapped[str] = mapped_column(String, default="")
+    tagline: Mapped[str] = mapped_column(String, default="Enterprise Energy Intelligence")
+    logo_url: Mapped[str] = mapped_column(String, default="")
+    favicon_url: Mapped[str] = mapped_column(String, default="")
     custom_domain: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Colours (hex)
-    color_primary:   Mapped[str] = mapped_column(String, default="#00d4ff")
+    color_primary: Mapped[str] = mapped_column(String, default="#00d4ff")
     color_secondary: Mapped[str] = mapped_column(String, default="#0d0d1a")
-    color_accent:    Mapped[str] = mapped_column(String, default="#7fff6b")
-    color_text:      Mapped[str] = mapped_column(String, default="#e0e0e0")
+    color_accent: Mapped[str] = mapped_column(String, default="#7fff6b")
+    color_text: Mapped[str] = mapped_column(String, default="#e0e0e0")
 
     # Carbon intensity override (kg CO2e/kWh)
     carbon_intensity: Mapped[float | None] = mapped_column(default=None)
@@ -70,8 +71,8 @@ class TenantBranding(BrandingBase):
     feature_flags_json: Mapped[str] = mapped_column(Text, default="{}")
     css_overrides_json: Mapped[str] = mapped_column(Text, default="{}")
 
-    is_active:    Mapped[bool]     = mapped_column(Boolean, default=True)
-    created_at:   Mapped[datetime] = mapped_column(
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
@@ -92,27 +93,29 @@ class TenantBranding(BrandingBase):
 
 # ── Python dataclass view (immutable, for passing around) ─────────────────────
 
+
 @dataclass(frozen=True)
 class BrandingProfile:
     """
     Resolved, immutable branding snapshot.
     Built from TenantBranding and used throughout the request lifecycle.
     """
-    tenant_id:     str
-    product_name:  str         = "VoltEdge"
-    tagline:       str         = "Enterprise Energy Intelligence"
-    logo_url:      str         = ""
-    custom_domain: str         = ""
-    color_primary:   str       = "#00d4ff"
-    color_secondary: str       = "#0d0d1a"
-    color_accent:    str       = "#7fff6b"
-    color_text:      str       = "#e0e0e0"
+
+    tenant_id: str
+    product_name: str = "VoltEdge"
+    tagline: str = "Enterprise Energy Intelligence"
+    logo_url: str = ""
+    custom_domain: str = ""
+    color_primary: str = "#00d4ff"
+    color_secondary: str = "#0d0d1a"
+    color_accent: str = "#7fff6b"
+    color_text: str = "#e0e0e0"
     carbon_intensity: float | None = None
     feature_flags: dict[str, bool] = field(default_factory=dict)
-    css_overrides: dict[str, str]  = field(default_factory=dict)
+    css_overrides: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_db(cls, branding: TenantBranding) -> "BrandingProfile":
+    def from_db(cls, branding: TenantBranding) -> BrandingProfile:
         return cls(
             tenant_id=branding.tenant_id,
             product_name=branding.product_name,
@@ -129,7 +132,7 @@ class BrandingProfile:
         )
 
     @classmethod
-    def default(cls) -> "BrandingProfile":
+    def default(cls) -> BrandingProfile:
         return cls(tenant_id="voltedge")
 
     def to_css_vars(self) -> str:
@@ -139,10 +142,14 @@ class BrandingProfile:
         """
         overrides = self.css_overrides
         lines = [":root {"]
-        lines.append(f"  --ve-color-primary:   {overrides.get('color_primary',   self.color_primary)};")
-        lines.append(f"  --ve-color-secondary: {overrides.get('color_secondary', self.color_secondary)};")
-        lines.append(f"  --ve-color-accent:    {overrides.get('color_accent',    self.color_accent)};")
-        lines.append(f"  --ve-color-text:      {overrides.get('color_text',      self.color_text)};")
+        lines.append(
+            f"  --ve-color-primary:   {overrides.get('color_primary', self.color_primary)};"
+        )
+        lines.append(
+            f"  --ve-color-secondary: {overrides.get('color_secondary', self.color_secondary)};"
+        )
+        lines.append(f"  --ve-color-accent:    {overrides.get('color_accent', self.color_accent)};")
+        lines.append(f"  --ve-color-text:      {overrides.get('color_text', self.color_text)};")
         lines.append("}")
         return "\n".join(lines)
 
@@ -155,61 +162,82 @@ class BrandingProfile:
 # Built-in OEM partner catalogue (pre-seeded for demos)
 BUILTIN_TENANTS: list[dict[str, Any]] = [
     {
-        "tenant_id":    "voltedge",
+        "tenant_id": "voltedge",
         "product_name": "VoltEdge",
-        "tagline":      "Enterprise Energy Intelligence",
+        "tagline": "Enterprise Energy Intelligence",
         "color_primary": "#00d4ff",
         "color_secondary": "#0d0d1a",
-        "color_accent":  "#7fff6b",
+        "color_accent": "#7fff6b",
         "feature_flags": {
-            "forecast": True, "anomaly": True, "esg": True,
-            "optimizer": True, "lstm": True, "pdf_export": True,
-            "multi_site": True, "erp_integration": True,
+            "forecast": True,
+            "anomaly": True,
+            "esg": True,
+            "optimizer": True,
+            "lstm": True,
+            "pdf_export": True,
+            "multi_site": True,
+            "erp_integration": True,
         },
     },
     {
-        "tenant_id":    "shell-energy",
+        "tenant_id": "shell-energy",
         "product_name": "Shell EnergyIQ",
-        "tagline":      "Powering the Energy Transition",
+        "tagline": "Powering the Energy Transition",
         "custom_domain": "energyiq.shell.com",
-        "logo_url":     "https://cdn.shell.com/logo.svg",
-        "color_primary":  "#FBCE07",   # Shell yellow
+        "logo_url": "https://cdn.shell.com/logo.svg",
+        "color_primary": "#FBCE07",  # Shell yellow
         "color_secondary": "#DD1D21",  # Shell red
-        "color_accent":   "#ffffff",
-        "carbon_intensity": 0.195,      # Shell's reported 2023 intensity
+        "color_accent": "#ffffff",
+        "carbon_intensity": 0.195,  # Shell's reported 2023 intensity
         "feature_flags": {
-            "forecast": True, "anomaly": True, "esg": True,
-            "optimizer": True, "lstm": True, "pdf_export": True,
-            "multi_site": True, "erp_integration": True, "shell_trading": True,
+            "forecast": True,
+            "anomaly": True,
+            "esg": True,
+            "optimizer": True,
+            "lstm": True,
+            "pdf_export": True,
+            "multi_site": True,
+            "erp_integration": True,
+            "shell_trading": True,
         },
     },
     {
-        "tenant_id":    "bp-energy",
+        "tenant_id": "bp-energy",
         "product_name": "bp EnergyOS",
-        "tagline":      "Reimagining Energy",
+        "tagline": "Reimagining Energy",
         "custom_domain": "energyos.bp.com",
-        "logo_url":     "https://cdn.bp.com/logo.svg",
-        "color_primary":  "#009900",   # bp green
+        "logo_url": "https://cdn.bp.com/logo.svg",
+        "color_primary": "#009900",  # bp green
         "color_secondary": "#ffffff",
-        "color_accent":   "#009900",
+        "color_accent": "#009900",
         "feature_flags": {
-            "forecast": True, "anomaly": True, "esg": True,
-            "optimizer": True, "lstm": True, "pdf_export": True,
-            "multi_site": True, "erp_integration": True,
+            "forecast": True,
+            "anomaly": True,
+            "esg": True,
+            "optimizer": True,
+            "lstm": True,
+            "pdf_export": True,
+            "multi_site": True,
+            "erp_integration": True,
         },
     },
     {
-        "tenant_id":    "eni-analytics",
+        "tenant_id": "eni-analytics",
         "product_name": "Eni Energy Analytics",
-        "tagline":      "Sustainable Energy, Sustainable Future",
+        "tagline": "Sustainable Energy, Sustainable Future",
         "custom_domain": "analytics.eni.com",
-        "color_primary":  "#FFCB07",   # Eni yellow
+        "color_primary": "#FFCB07",  # Eni yellow
         "color_secondary": "#1A1A1A",
-        "color_accent":   "#FFCB07",
+        "color_accent": "#FFCB07",
         "feature_flags": {
-            "forecast": True, "anomaly": True, "esg": True,
-            "optimizer": True, "lstm": False,  "pdf_export": True,
-            "multi_site": True, "erp_integration": False,
+            "forecast": True,
+            "anomaly": True,
+            "esg": True,
+            "optimizer": True,
+            "lstm": False,
+            "pdf_export": True,
+            "multi_site": True,
+            "erp_integration": False,
         },
     },
 ]
@@ -226,9 +254,7 @@ class BrandingService:
     def seed_builtin_tenants(self) -> None:
         """Idempotent: create built-in OEM tenants if not present."""
         for t in BUILTIN_TENANTS:
-            existing = self.db.query(TenantBranding).filter_by(
-                tenant_id=t["tenant_id"]
-            ).first()
+            existing = self.db.query(TenantBranding).filter_by(tenant_id=t["tenant_id"]).first()
             if not existing:
                 flags = t.pop("feature_flags", {})
                 branding = TenantBranding(
@@ -256,18 +282,20 @@ class BrandingService:
           3. Default VoltEdge branding
         """
         if tenant_id:
-            row = self.db.query(TenantBranding).filter_by(
-                tenant_id=tenant_id, is_active=True
-            ).first()
+            row = (
+                self.db.query(TenantBranding).filter_by(tenant_id=tenant_id, is_active=True).first()
+            )
             if row:
                 return BrandingProfile.from_db(row)
 
         if host:
             # Strip port
             domain = host.split(":")[0]
-            row = self.db.query(TenantBranding).filter_by(
-                custom_domain=domain, is_active=True
-            ).first()
+            row = (
+                self.db.query(TenantBranding)
+                .filter_by(custom_domain=domain, is_active=True)
+                .first()
+            )
             if row:
                 return BrandingProfile.from_db(row)
 
@@ -284,7 +312,7 @@ class BrandingService:
         if self.db.query(TenantBranding).filter_by(tenant_id=tenant_id).first():
             raise ValueError(f"Tenant '{tenant_id}' already exists.")
         flags = kwargs.pop("feature_flags", {})
-        css   = kwargs.pop("css_overrides", {})
+        css = kwargs.pop("css_overrides", {})
         branding = TenantBranding(
             tenant_id=tenant_id,
             product_name=product_name,

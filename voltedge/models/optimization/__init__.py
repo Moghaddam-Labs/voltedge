@@ -24,7 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from voltedge.utils.logger import get_logger
@@ -37,13 +36,13 @@ log = get_logger(__name__)
 TARIFFS: dict[str, dict[str, Any]] = {
     "UK_HALF_HOURLY": {
         "currency": "GBP",
-        "peak_hours": list(range(16, 20)),        # 16:00–19:59 (Triad risk window)
+        "peak_hours": list(range(16, 20)),  # 16:00–19:59 (Triad risk window)
         "shoulder_hours": list(range(7, 16)),
         "off_peak_hours": list(range(0, 7)) + [20, 21, 22, 23],
         "peak_rate_per_kwh": 0.38,
         "shoulder_rate_per_kwh": 0.22,
         "off_peak_rate_per_kwh": 0.09,
-        "demand_charge_per_kw_month": 12.50,      # £/kW of monthly peak
+        "demand_charge_per_kw_month": 12.50,  # £/kW of monthly peak
     },
     "EU_INDUSTRIAL": {
         "currency": "EUR",
@@ -70,13 +69,14 @@ TARIFFS: dict[str, dict[str, Any]] = {
 
 # ── Output data model ─────────────────────────────────────────────────────────
 
+
 @dataclass
 class OptimizationRecommendation:
-    category: str                        # "peak_shaving" | "load_shifting" | "power_factor"
+    category: str  # "peak_shaving" | "load_shifting" | "power_factor"
     description: str
-    estimated_annual_saving: float       # In tariff currency
+    estimated_annual_saving: float  # In tariff currency
     currency: str
-    effort: str                          # "low" | "medium" | "high"
+    effort: str  # "low" | "medium" | "high"
     payback_months: float | None = None
     affected_hours: list[int] = field(default_factory=list)
     kwh_shift_potential: float = 0.0
@@ -106,6 +106,7 @@ class OptimizationReport:
 
 
 # ── Optimizer ─────────────────────────────────────────────────────────────────
+
 
 class CostOptimizer:
     """
@@ -151,8 +152,9 @@ class CostOptimizer:
 
         period_days = max(1, (df["timestamp"].max() - df["timestamp"].min()).days)
 
-        log.info("optimizer.analyse_start", site=self.site_id,
-                 tariff=self.tariff_name, days=period_days)
+        log.info(
+            "optimizer.analyse_start", site=self.site_id, tariff=self.tariff_name, days=period_days
+        )
 
         current_cost = self._compute_energy_cost(df)
         annual_scale = 365 / period_days
@@ -201,14 +203,14 @@ class CostOptimizer:
     def _compute_energy_cost(self, df: pd.DataFrame) -> float:
         """Compute actual energy cost over the data period using ToU tariff."""
         t = self.tariff
-        peak_mask     = df["hour"].isin(t["peak_hours"])
+        peak_mask = df["hour"].isin(t["peak_hours"])
         shoulder_mask = df["hour"].isin(t["shoulder_hours"])
         off_peak_mask = df["hour"].isin(t["off_peak_hours"])
 
         cost = (
-            df.loc[peak_mask,     "kwh"].sum() * t["peak_rate_per_kwh"] +
-            df.loc[shoulder_mask, "kwh"].sum() * t["shoulder_rate_per_kwh"] +
-            df.loc[off_peak_mask, "kwh"].sum() * t["off_peak_rate_per_kwh"]
+            df.loc[peak_mask, "kwh"].sum() * t["peak_rate_per_kwh"]
+            + df.loc[shoulder_mask, "kwh"].sum() * t["shoulder_rate_per_kwh"]
+            + df.loc[off_peak_mask, "kwh"].sum() * t["off_peak_rate_per_kwh"]
         )
         # Demand charge: peak kW × monthly charge × 12
         monthly_peak_kw = df["kwh"].max()
@@ -236,55 +238,59 @@ class CostOptimizer:
         capex = bess_size_kwh * self.capex_per_kwh
         payback = (capex / total_annual_saving * 12) if total_annual_saving > 0 else None
 
-        return [OptimizationRecommendation(
-            category="peak_shaving",
-            description=(
-                f"Deploy BESS ({bess_size_kwh:.0f} kWh) to shave peak demand by "
-                f"{target_reduction_kw:.1f} kW during peak tariff windows "
-                f"({min(t['peak_hours'])}:00–{max(t['peak_hours'])+1}:00)."
-            ),
-            estimated_annual_saving=round(total_annual_saving, 2),
-            currency=t["currency"],
-            effort="high",
-            payback_months=round(payback, 1) if payback else None,
-            affected_hours=t["peak_hours"],
-            kwh_shift_potential=round(bess_size_kwh, 1),
-        )]
+        return [
+            OptimizationRecommendation(
+                category="peak_shaving",
+                description=(
+                    f"Deploy BESS ({bess_size_kwh:.0f} kWh) to shave peak demand by "
+                    f"{target_reduction_kw:.1f} kW during peak tariff windows "
+                    f"({min(t['peak_hours'])}:00–{max(t['peak_hours']) + 1}:00)."
+                ),
+                estimated_annual_saving=round(total_annual_saving, 2),
+                currency=t["currency"],
+                effort="high",
+                payback_months=round(payback, 1) if payback else None,
+                affected_hours=t["peak_hours"],
+                kwh_shift_potential=round(bess_size_kwh, 1),
+            )
+        ]
 
     def _load_shifting_analysis(
         self, df: pd.DataFrame, annual_scale: float
     ) -> list[OptimizationRecommendation]:
         """Identify peak-hour loads that could shift to off-peak."""
         t = self.tariff
-        peak_df     = df[df["hour"].isin(t["peak_hours"])]
+        peak_df = df[df["hour"].isin(t["peak_hours"])]
         off_peak_df = df[df["hour"].isin(t["off_peak_hours"])]
 
         if peak_df.empty or off_peak_df.empty:
             return []
 
         # Shiftable = loads above the off-peak mean during peak hours
-        baseline_kwh  = float(off_peak_df["kwh"].mean())
-        peak_excess   = (peak_df["kwh"] - baseline_kwh).clip(lower=0)
+        baseline_kwh = float(off_peak_df["kwh"].mean())
+        peak_excess = (peak_df["kwh"] - baseline_kwh).clip(lower=0)
         shiftable_kwh = float(peak_excess.mean()) * len(peak_df)
 
         rate_diff = t["peak_rate_per_kwh"] - t["off_peak_rate_per_kwh"]
         period_saving = shiftable_kwh * rate_diff * 0.3  # Assume 30% is actually shiftable
         annual_saving = period_saving * annual_scale
 
-        return [OptimizationRecommendation(
-            category="load_shifting",
-            description=(
-                f"Shift ~{shiftable_kwh * 0.3:.0f} kWh of flexible loads "
-                f"(HVAC pre-cooling, EV charging, batch processes) "
-                f"from peak ({min(t['peak_hours'])}–{max(t['peak_hours'])+1}h) "
-                f"to off-peak ({t['off_peak_rate_per_kwh']:.2f} {t['currency']}/kWh)."
-            ),
-            estimated_annual_saving=round(annual_saving, 2),
-            currency=t["currency"],
-            effort="medium",
-            affected_hours=t["peak_hours"],
-            kwh_shift_potential=round(shiftable_kwh * 0.3, 1),
-        )]
+        return [
+            OptimizationRecommendation(
+                category="load_shifting",
+                description=(
+                    f"Shift ~{shiftable_kwh * 0.3:.0f} kWh of flexible loads "
+                    f"(HVAC pre-cooling, EV charging, batch processes) "
+                    f"from peak ({min(t['peak_hours'])}–{max(t['peak_hours']) + 1}h) "
+                    f"to off-peak ({t['off_peak_rate_per_kwh']:.2f} {t['currency']}/kWh)."
+                ),
+                estimated_annual_saving=round(annual_saving, 2),
+                currency=t["currency"],
+                effort="medium",
+                affected_hours=t["peak_hours"],
+                kwh_shift_potential=round(shiftable_kwh * 0.3, 1),
+            )
+        ]
 
     def _power_factor_analysis(
         self, df: pd.DataFrame, annual_scale: float
@@ -304,29 +310,35 @@ class CostOptimizer:
         energy_cost = df["kwh"].sum() * t["peak_rate_per_kwh"]  # Rough proxy
         annual_saving = energy_cost * penalty_pct * annual_scale
 
-        return [OptimizationRecommendation(
-            category="power_factor",
-            description=(
-                f"Install power factor correction capacitors. Current avg PF = {avg_pf:.3f} "
-                f"(target ≥0.92). Penalty estimated at {penalty_pct*100:.1f}% of energy bill."
-            ),
-            estimated_annual_saving=round(annual_saving, 2),
-            currency=t["currency"],
-            effort="medium",
-            affected_hours=list(range(24)),
-        )]
+        return [
+            OptimizationRecommendation(
+                category="power_factor",
+                description=(
+                    f"Install power factor correction capacitors. Current avg PF = {avg_pf:.3f} "
+                    f"(target ≥0.92). Penalty estimated at {penalty_pct * 100:.1f}% of energy bill."
+                ),
+                estimated_annual_saving=round(annual_saving, 2),
+                currency=t["currency"],
+                effort="medium",
+                affected_hours=list(range(24)),
+            )
+        ]
 
     def _off_peak_opportunity_analysis(
         self, df: pd.DataFrame, annual_scale: float
     ) -> list[OptimizationRecommendation]:
         """Flag weekend/night hours that are underutilised for batch workloads."""
         t = self.tariff
-        weekend_df = df[df["timestamp"].dt.weekday >= 5] if "timestamp" in df.columns else pd.DataFrame()
+        weekend_df = (
+            df[df["timestamp"].dt.weekday >= 5] if "timestamp" in df.columns else pd.DataFrame()
+        )
 
         if weekend_df.empty:
             return []
 
-        off_peak_weekend_avg = float(weekend_df[weekend_df["hour"].isin(t["off_peak_hours"])]["kwh"].mean())
+        off_peak_weekend_avg = float(
+            weekend_df[weekend_df["hour"].isin(t["off_peak_hours"])]["kwh"].mean()
+        )
         overall_avg = float(df["kwh"].mean())
 
         if off_peak_weekend_avg >= overall_avg * 0.6:
@@ -335,15 +347,17 @@ class CostOptimizer:
         potential_kwh = (overall_avg - off_peak_weekend_avg) * len(weekend_df) * 0.2
         saving = potential_kwh * (t["peak_rate_per_kwh"] - t["off_peak_rate_per_kwh"])
 
-        return [OptimizationRecommendation(
-            category="scheduling",
-            description=(
-                "Reschedule batch IT jobs, data backups, and maintenance tasks "
-                "to weekend off-peak hours. Current weekend off-peak utilisation "
-                f"is {off_peak_weekend_avg:.1f} kWh vs site avg {overall_avg:.1f} kWh."
-            ),
-            estimated_annual_saving=round(saving * annual_scale, 2),
-            currency=t["currency"],
-            effort="low",
-            affected_hours=t["off_peak_hours"],
-        )]
+        return [
+            OptimizationRecommendation(
+                category="scheduling",
+                description=(
+                    "Reschedule batch IT jobs, data backups, and maintenance tasks "
+                    "to weekend off-peak hours. Current weekend off-peak utilisation "
+                    f"is {off_peak_weekend_avg:.1f} kWh vs site avg {overall_avg:.1f} kWh."
+                ),
+                estimated_annual_saving=round(saving * annual_scale, 2),
+                currency=t["currency"],
+                effort="low",
+                affected_hours=t["off_peak_hours"],
+            )
+        ]

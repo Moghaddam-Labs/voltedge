@@ -28,14 +28,12 @@ SLA credit policy (standard industry practice):
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
-import json
+from sqlalchemy import Boolean, DateTime, Float, Integer, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from voltedge.utils.logger import get_logger
 
@@ -44,13 +42,15 @@ log = get_logger(__name__)
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class CheckStatus(str, Enum):
-    UP      = "up"
-    DOWN    = "down"
+    UP = "up"
+    DOWN = "down"
     DEGRADED = "degraded"
 
 
 # ── DB Models ─────────────────────────────────────────────────────────────────
+
 
 class SLABase(DeclarativeBase):
     pass
@@ -58,19 +58,19 @@ class SLABase(DeclarativeBase):
 
 class HealthCheck(SLABase):
     """Single availability check result."""
+
     __tablename__ = "health_checks"
 
-    id:           Mapped[str]    = mapped_column(String, primary_key=True,
-                                                  default=lambda: str(uuid.uuid4()))
-    tenant_id:    Mapped[str]    = mapped_column(String, nullable=False, index=True)
-    checked_at:   Mapped[datetime] = mapped_column(
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    checked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
-    status:       Mapped[str]    = mapped_column(String, default=CheckStatus.UP.value)
-    response_ms:  Mapped[float]  = mapped_column(Float, default=0.0)
-    status_code:  Mapped[int]    = mapped_column(Integer, default=200)
-    error_msg:    Mapped[str]    = mapped_column(String, default="")
-    region:       Mapped[str]    = mapped_column(String, default="eu-west-1")
+    status: Mapped[str] = mapped_column(String, default=CheckStatus.UP.value)
+    response_ms: Mapped[float] = mapped_column(Float, default=0.0)
+    status_code: Mapped[int] = mapped_column(Integer, default=200)
+    error_msg: Mapped[str] = mapped_column(String, default="")
+    region: Mapped[str] = mapped_column(String, default="eu-west-1")
 
     @property
     def is_up(self) -> bool:
@@ -79,27 +79,33 @@ class HealthCheck(SLABase):
 
 class SLAIncident(SLABase):
     """A recorded outage or degradation event."""
+
     __tablename__ = "sla_incidents"
 
-    id:          Mapped[str]      = mapped_column(String, primary_key=True,
-                                                   default=lambda: str(uuid.uuid4()))
-    tenant_id:   Mapped[str]      = mapped_column(String, nullable=False, index=True)
-    started_at:  Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    impact:      Mapped[str]      = mapped_column(String, default=CheckStatus.DOWN.value)
-    description: Mapped[str]      = mapped_column(String, default="")
+    impact: Mapped[str] = mapped_column(String, default=CheckStatus.DOWN.value)
+    description: Mapped[str] = mapped_column(String, default="")
     regions_affected: Mapped[str] = mapped_column(String, default="")
-    is_excluded:  Mapped[bool]    = mapped_column(Boolean, default=False)
+    is_excluded: Mapped[bool] = mapped_column(Boolean, default=False)
 
     @property
     def duration_minutes(self) -> float:
         if not self.resolved_at:
             end = datetime.now(timezone.utc)
         else:
-            end = self.resolved_at if self.resolved_at.tzinfo else \
-                self.resolved_at.replace(tzinfo=timezone.utc)
-        start = self.started_at if self.started_at.tzinfo else \
-            self.started_at.replace(tzinfo=timezone.utc)
+            end = (
+                self.resolved_at
+                if self.resolved_at.tzinfo
+                else self.resolved_at.replace(tzinfo=timezone.utc)
+            )
+        start = (
+            self.started_at
+            if self.started_at.tzinfo
+            else self.started_at.replace(tzinfo=timezone.utc)
+        )
         return (end - start).total_seconds() / 60
 
     @property
@@ -109,26 +115,28 @@ class SLAIncident(SLABase):
 
 # ── SLA Report ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SLAReport:
     """Monthly SLA compliance report for one tenant."""
-    tenant_id:          str
-    period_start:       datetime
-    period_end:         datetime
-    sla_target_pct:     float
-    uptime_pct:         float
-    total_checks:       int
-    checks_up:          int
-    checks_down:        int
-    downtime_minutes:   float
-    incident_count:     int
-    avg_response_ms:    float
-    p95_response_ms:    float
-    p99_response_ms:    float
-    error_rate_pct:     float
-    sla_breached:       bool
-    credit_pct:         float           # % of monthly bill as credit
-    open_incidents:     int
+
+    tenant_id: str
+    period_start: datetime
+    period_end: datetime
+    sla_target_pct: float
+    uptime_pct: float
+    total_checks: int
+    checks_up: int
+    checks_down: int
+    downtime_minutes: float
+    incident_count: int
+    avg_response_ms: float
+    p95_response_ms: float
+    p99_response_ms: float
+    error_rate_pct: float
+    sla_breached: bool
+    credit_pct: float  # % of monthly bill as credit
+    open_incidents: int
 
     @property
     def availability_pct(self) -> float:
@@ -148,6 +156,7 @@ class SLAReport:
 
 # ── Credit policy ─────────────────────────────────────────────────────────────
 
+
 def calculate_credit_pct(actual_uptime_pct: float, target_uptime_pct: float) -> float:
     """
     Calculate SLA credit percentage of monthly bill.
@@ -164,6 +173,7 @@ def calculate_credit_pct(actual_uptime_pct: float, target_uptime_pct: float) -> 
 
 # ── SLA Service ───────────────────────────────────────────────────────────────
 
+
 class SLAMonitoringService:
     """
     Records health checks, detects incidents, and generates SLA reports.
@@ -176,13 +186,13 @@ class SLAMonitoringService:
 
     def record_check(
         self,
-        tenant_id:   str,
-        status:      CheckStatus,
+        tenant_id: str,
+        status: CheckStatus,
         response_ms: float = 0.0,
-        status_code: int   = 200,
-        error_msg:   str   = "",
-        region:      str   = "eu-west-1",
-        timestamp:   datetime | None = None,
+        status_code: int = 200,
+        error_msg: str = "",
+        region: str = "eu-west-1",
+        timestamp: datetime | None = None,
     ) -> HealthCheck:
         check = HealthCheck(
             tenant_id=tenant_id,
@@ -196,8 +206,13 @@ class SLAMonitoringService:
         self.db.add(check)
         self.db.commit()
         if status != CheckStatus.UP:
-            log.warning("sla.check_failed", tenant=tenant_id, status=status.value,
-                        region=region, code=status_code)
+            log.warning(
+                "sla.check_failed",
+                tenant=tenant_id,
+                status=status.value,
+                region=region,
+                code=status_code,
+            )
         return check
 
     def record_checks_bulk(self, checks: list[dict]) -> int:
@@ -211,11 +226,11 @@ class SLAMonitoringService:
 
     def open_incident(
         self,
-        tenant_id:        str,
-        started_at:       datetime | None = None,
-        impact:           CheckStatus     = CheckStatus.DOWN,
-        description:      str             = "",
-        regions_affected: str             = "",
+        tenant_id: str,
+        started_at: datetime | None = None,
+        impact: CheckStatus = CheckStatus.DOWN,
+        description: str = "",
+        regions_affected: str = "",
     ) -> SLAIncident:
         incident = SLAIncident(
             tenant_id=tenant_id,
@@ -229,14 +244,19 @@ class SLAMonitoringService:
         log.warning("sla.incident_opened", tenant=tenant_id, impact=impact.value)
         return incident
 
-    def resolve_incident(self, incident_id: str, resolved_at: datetime | None = None) -> SLAIncident:
+    def resolve_incident(
+        self, incident_id: str, resolved_at: datetime | None = None
+    ) -> SLAIncident:
         incident = self.db.query(SLAIncident).filter_by(id=incident_id).first()
         if not incident:
             raise ValueError(f"Incident '{incident_id}' not found.")
         incident.resolved_at = resolved_at or datetime.now(timezone.utc)
         self.db.commit()
-        log.info("sla.incident_resolved", incident=incident_id,
-                 duration_min=round(incident.duration_minutes, 1))
+        log.info(
+            "sla.incident_resolved",
+            incident=incident_id,
+            duration_min=round(incident.duration_minutes, 1),
+        )
         return incident
 
     def exclude_incident(self, incident_id: str, reason: str = "") -> None:
@@ -251,10 +271,10 @@ class SLAMonitoringService:
 
     def generate_report(
         self,
-        tenant_id:      str,
+        tenant_id: str,
         sla_target_pct: float,
-        period_start:   datetime | None = None,
-        period_end:     datetime | None = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
     ) -> SLAReport:
         """
         Generate an SLA compliance report for the specified period.
@@ -277,19 +297,12 @@ class SLAMonitoringService:
         ps_n = _norm(period_start)
         pe_n = _norm(period_end)
 
-        checks = (
-            self.db.query(HealthCheck)
-            .filter(HealthCheck.tenant_id == tenant_id)
-            .all()
-        )
-        checks = [
-            c for c in checks
-            if ps_n <= _norm(c.checked_at) <= pe_n
-        ]
+        checks = self.db.query(HealthCheck).filter(HealthCheck.tenant_id == tenant_id).all()
+        checks = [c for c in checks if ps_n <= _norm(c.checked_at) <= pe_n]
 
         total = len(checks)
-        up    = sum(1 for c in checks if c.is_up)
-        down  = total - up
+        up = sum(1 for c in checks if c.is_up)
+        down = total - up
 
         uptime_pct = (up / total * 100) if total > 0 else 100.0
         response_times = [c.response_ms for c in checks if c.is_up and c.response_ms > 0]
@@ -308,14 +321,11 @@ class SLAMonitoringService:
             self.db.query(SLAIncident)
             .filter(
                 SLAIncident.tenant_id == tenant_id,
-                SLAIncident.is_excluded == False,
+                SLAIncident.is_excluded.is_(False),
             )
             .all()
         )
-        incidents_in_period = [
-            i for i in incidents
-            if ps_n <= _norm(i.started_at) <= pe_n
-        ]
+        incidents_in_period = [i for i in incidents if ps_n <= _norm(i.started_at) <= pe_n]
         open_inc = sum(1 for i in incidents_in_period if i.is_open)
         downtime_min = sum(i.duration_minutes for i in incidents_in_period if not i.is_open)
 
@@ -342,15 +352,20 @@ class SLAMonitoringService:
             open_incidents=open_inc,
         )
 
-        log.info("sla.report_generated", tenant=tenant_id,
-                 uptime=report.uptime_pct, breached=breached, credit=credit)
+        log.info(
+            "sla.report_generated",
+            tenant=tenant_id,
+            uptime=report.uptime_pct,
+            breached=breached,
+            credit=credit,
+        )
         return report
 
     def portfolio_report(
         self,
         tenant_sla_map: dict[str, float],
         period_start: datetime | None = None,
-        period_end: datetime | None   = None,
+        period_end: datetime | None = None,
     ) -> list[SLAReport]:
         """Generate reports for all tenants in the portfolio."""
         return [

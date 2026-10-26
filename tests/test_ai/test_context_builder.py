@@ -1,12 +1,15 @@
 """Tests for ContextBuilder — uses simulated store data."""
+
 from __future__ import annotations
+
 import asyncio
+
 import pytest
-from voltedge.ai.context_builder import ContextBuilder, SiteSnapshot, PortfolioSnapshot
+
+from voltedge.ai.context_builder import ContextBuilder, PortfolioSnapshot, SiteSnapshot
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
 from voltedge.storage.base import LocalStore
-
 
 SITE = "CB-TEST-01"
 
@@ -28,6 +31,7 @@ def builder(store_with_data):
 
 
 # ── SiteSnapshot ──────────────────────────────────────────────────────────────
+
 
 def test_build_site_returns_snapshot(builder):
     snap = builder.build_site(SITE, hours=24)
@@ -76,6 +80,7 @@ def test_build_site_cost_estimate(builder):
 
 # ── to_prompt_text ────────────────────────────────────────────────────────────
 
+
 def test_prompt_text_contains_site_id(builder):
     snap = builder.build_site(SITE, hours=24)
     text = snap.to_prompt_text()
@@ -104,10 +109,11 @@ def test_prompt_text_under_token_budget(builder):
     snap = builder.build_site(SITE, hours=24)
     text = snap.to_prompt_text()
     # Approx tokens = chars / 4; must be under 4000 tokens
-    assert len(text) < 16_000   # 4000 tokens × 4 chars/token
+    assert len(text) < 16_000  # 4000 tokens × 4 chars/token
 
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
+
 
 def test_build_portfolio_returns_snapshot(store_with_data):
     connector2 = SimulatedSiteConnector("CB-TEST-02", "office", hours=100, seed=7)

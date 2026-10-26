@@ -43,22 +43,24 @@ log = get_logger(__name__)
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class CreditStatus(str, Enum):
-    PENDING   = "pending"    # Claim submitted, awaiting verification
-    ISSUED    = "issued"     # Credit issued and held in account
-    RETIRED   = "retired"    # Credit retired against Scope 2 claim
+    PENDING = "pending"  # Claim submitted, awaiting verification
+    ISSUED = "issued"  # Credit issued and held in account
+    RETIRED = "retired"  # Credit retired against Scope 2 claim
     CANCELLED = "cancelled"  # Claim rejected or withdrawn
 
 
 class RegistryType(str, Enum):
-    VERRA        = "verra"
+    VERRA = "verra"
     GOLD_STANDARD = "gold_standard"
-    IREC         = "irec"
-    REGO         = "rego"
-    MOCK         = "mock"
+    IREC = "irec"
+    REGO = "rego"
+    MOCK = "mock"
 
 
 # ── Data models ───────────────────────────────────────────────────────────────
+
 
 @dataclass
 class CarbonCredit:
@@ -68,30 +70,30 @@ class CarbonCredit:
     Fields follow the Verra VCS schema; Gold Standard uses the same
     logical structure with different field names mapped at parse time.
     """
-    credit_id:      str            # Registry-assigned serial number
-    registry:       RegistryType
-    project_id:     str            # Registry project ID
-    project_name:   str
-    vintage_year:   int            # Year the reduction occurred
-    quantity_tco2e: float          # Tonnes CO₂e this credit represents
-    status:         CreditStatus   = CreditStatus.ISSUED
-    methodology:    str            = ""
-    country:        str            = ""
-    sdg_goals:      list[int]      = field(default_factory=list)  # UN SDGs
-    issued_at:      datetime       = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
-    retired_at:     datetime | None = None
-    retired_by:     str            = ""   # Entity retiring the credit
-    price_usd:      float | None   = None
+
+    credit_id: str  # Registry-assigned serial number
+    registry: RegistryType
+    project_id: str  # Registry project ID
+    project_name: str
+    vintage_year: int  # Year the reduction occurred
+    quantity_tco2e: float  # Tonnes CO₂e this credit represents
+    status: CreditStatus = CreditStatus.ISSUED
+    methodology: str = ""
+    country: str = ""
+    sdg_goals: list[int] = field(default_factory=list)  # UN SDGs
+    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    retired_at: datetime | None = None
+    retired_by: str = ""  # Entity retiring the credit
+    price_usd: float | None = None
 
     @property
     def is_retired(self) -> bool:
         return self.status == CreditStatus.RETIRED
 
-    def retire(self, entity: str) -> "CarbonCredit":
+    def retire(self, entity: str) -> CarbonCredit:
         """Return a new retired credit (credits are immutable after issuance)."""
         from dataclasses import replace
+
         return replace(
             self,
             status=CreditStatus.RETIRED,
@@ -101,20 +103,20 @@ class CarbonCredit:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "credit_id":      self.credit_id,
-            "registry":       self.registry.value,
-            "project_id":     self.project_id,
-            "project_name":   self.project_name,
-            "vintage_year":   self.vintage_year,
+            "credit_id": self.credit_id,
+            "registry": self.registry.value,
+            "project_id": self.project_id,
+            "project_name": self.project_name,
+            "vintage_year": self.vintage_year,
             "quantity_tco2e": self.quantity_tco2e,
-            "status":         self.status.value,
-            "methodology":    self.methodology,
-            "country":        self.country,
-            "sdg_goals":      self.sdg_goals,
-            "issued_at":      self.issued_at.isoformat(),
-            "retired_at":     self.retired_at.isoformat() if self.retired_at else None,
-            "retired_by":     self.retired_by,
-            "price_usd":      self.price_usd,
+            "status": self.status.value,
+            "methodology": self.methodology,
+            "country": self.country,
+            "sdg_goals": self.sdg_goals,
+            "issued_at": self.issued_at.isoformat(),
+            "retired_at": self.retired_at.isoformat() if self.retired_at else None,
+            "retired_by": self.retired_by,
+            "price_usd": self.price_usd,
         }
 
 
@@ -124,28 +126,28 @@ class CreditClaim:
     A claim submitted to the registry for credit issuance.
     Links VoltEdge ESG data to a registry submission.
     """
-    claim_id:        str  = field(default_factory=lambda: str(uuid.uuid4()))
-    site_id:         str  = ""
-    period_start:    datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    period_end:      datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    kwh_renewable:   float = 0.0
-    co2e_avoided_t:  float = 0.0    # tCO₂e
-    project_id:      str  = ""
-    registry:        RegistryType = RegistryType.MOCK
-    evidence_hash:   str  = ""      # SHA-256 of the underlying ESG data
-    status:          CreditStatus = CreditStatus.PENDING
+
+    claim_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    site_id: str = ""
+    period_start: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    period_end: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    kwh_renewable: float = 0.0
+    co2e_avoided_t: float = 0.0  # tCO₂e
+    project_id: str = ""
+    registry: RegistryType = RegistryType.MOCK
+    evidence_hash: str = ""  # SHA-256 of the underlying ESG data
+    status: CreditStatus = CreditStatus.PENDING
     issued_credit_id: str | None = None
 
-    def evidence_digest(self, data: str) -> "CreditClaim":
+    def evidence_digest(self, data: str) -> CreditClaim:
         """Attach a tamper-evident hash of the supporting ESG evidence."""
         from dataclasses import replace
-        return replace(
-            self,
-            evidence_hash=hashlib.sha256(data.encode()).hexdigest()
-        )
+
+        return replace(self, evidence_hash=hashlib.sha256(data.encode()).hexdigest())
 
 
 # ── Base registry ─────────────────────────────────────────────────────────────
+
 
 class BaseRegistry(ABC):
     """Abstract carbon credit registry adapter."""
@@ -182,6 +184,7 @@ class BaseRegistry(ABC):
 
 # ── Mock registry (tests + demos) ─────────────────────────────────────────────
 
+
 class MockRegistry(BaseRegistry):
     """
     In-memory registry for testing and demos.
@@ -193,32 +196,32 @@ class MockRegistry(BaseRegistry):
 
     MOCK_PROJECTS = {
         "VCS-001": {
-            "name":        "Brazilian Amazon REDD+",
+            "name": "Brazilian Amazon REDD+",
             "methodology": "VM0015",
-            "country":     "BR",
-            "sdg_goals":   [13, 15, 1],
-            "price_usd":   14.50,
+            "country": "BR",
+            "sdg_goals": [13, 15, 1],
+            "price_usd": 14.50,
         },
         "GS-002": {
-            "name":        "Kenya Clean Cookstoves",
+            "name": "Kenya Clean Cookstoves",
             "methodology": "AMS-II.G",
-            "country":     "KE",
-            "sdg_goals":   [3, 7, 13],
-            "price_usd":   22.80,
+            "country": "KE",
+            "sdg_goals": [3, 7, 13],
+            "price_usd": 22.80,
         },
         "IREC-003": {
-            "name":        "UK Offshore Wind",
+            "name": "UK Offshore Wind",
             "methodology": "IREC-RE",
-            "country":     "GB",
-            "sdg_goals":   [7, 13],
-            "price_usd":   8.20,
+            "country": "GB",
+            "sdg_goals": [7, 13],
+            "price_usd": 8.20,
         },
         "REGO-004": {
-            "name":        "Scottish Hydro Power",
+            "name": "Scottish Hydro Power",
             "methodology": "REGO-REG",
-            "country":     "GB",
-            "sdg_goals":   [7],
-            "price_usd":   6.50,
+            "country": "GB",
+            "sdg_goals": [7],
+            "price_usd": 6.50,
         },
     }
 
@@ -227,19 +230,22 @@ class MockRegistry(BaseRegistry):
     def __init__(self) -> None:
         super().__init__(dry_run=True)
         self._credits: dict[str, CarbonCredit] = {}
-        self._claims:  dict[str, CreditClaim]  = {}
+        self._claims: dict[str, CreditClaim] = {}
 
     def submit_claim(self, claim: CreditClaim) -> CreditClaim:
         if claim.co2e_avoided_t <= 0:
             raise ValueError(f"co2e_avoided_t must be > 0, got {claim.co2e_avoided_t}")
 
         project_id = claim.project_id or self.DEFAULT_PROJECT
-        project    = self.MOCK_PROJECTS.get(project_id, self.MOCK_PROJECTS[self.DEFAULT_PROJECT])
+        project = self.MOCK_PROJECTS.get(project_id, self.MOCK_PROJECTS[self.DEFAULT_PROJECT])
 
         # Deterministic credit_id for reproducibility
-        credit_id = "MOCK-" + hashlib.sha256(
-            f"{claim.claim_id}{project_id}{claim.co2e_avoided_t}".encode()
-        ).hexdigest()[:12].upper()
+        credit_id = (
+            "MOCK-"
+            + hashlib.sha256(f"{claim.claim_id}{project_id}{claim.co2e_avoided_t}".encode())
+            .hexdigest()[:12]
+            .upper()
+        )
 
         credit = CarbonCredit(
             credit_id=credit_id,
@@ -257,14 +263,14 @@ class MockRegistry(BaseRegistry):
         self._credits[credit_id] = credit
 
         from dataclasses import replace
+
         updated_claim = replace(
             claim,
             status=CreditStatus.ISSUED,
             issued_credit_id=credit_id,
         )
         self._claims[claim.claim_id] = updated_claim
-        log.info("mock_registry.credit_issued",
-                 credit_id=credit_id, tco2e=credit.quantity_tco2e)
+        log.info("mock_registry.credit_issued", credit_id=credit_id, tco2e=credit.quantity_tco2e)
         return updated_claim
 
     def get_credit(self, credit_id: str) -> CarbonCredit | None:
@@ -290,8 +296,7 @@ class MockRegistry(BaseRegistry):
             raise ValueError(f"Credit '{credit_id}' is already retired.")
         retired = credit.retire(entity)
         self._credits[credit_id] = retired
-        log.info("mock_registry.credit_retired",
-                 credit_id=credit_id, entity=entity)
+        log.info("mock_registry.credit_retired", credit_id=credit_id, entity=entity)
         return retired
 
     def get_credit_price(self, project_id: str) -> float | None:
@@ -300,15 +305,12 @@ class MockRegistry(BaseRegistry):
 
     def portfolio_value(self) -> dict[str, Any]:
         """Total portfolio value of all issued (non-retired) credits."""
-        active = [c for c in self._credits.values()
-                  if c.status == CreditStatus.ISSUED]
+        active = [c for c in self._credits.values() if c.status == CreditStatus.ISSUED]
         total_tco2e = sum(c.quantity_tco2e for c in active)
-        total_value = sum(
-            c.quantity_tco2e * (c.price_usd or 0) for c in active
-        )
+        total_value = sum(c.quantity_tco2e * (c.price_usd or 0) for c in active)
         return {
-            "active_credits":  len(active),
-            "total_tco2e":     round(total_tco2e, 4),
+            "active_credits": len(active),
+            "total_tco2e": round(total_tco2e, 4),
             "total_value_usd": round(total_value, 2),
             "by_project": {
                 pid: round(sum(c.quantity_tco2e for c in active if c.project_id == pid), 4)
@@ -318,6 +320,7 @@ class MockRegistry(BaseRegistry):
 
 
 # ── Verra registry (production) ───────────────────────────────────────────────
+
 
 class VerraRegistry(BaseRegistry):
     """
@@ -330,7 +333,7 @@ class VerraRegistry(BaseRegistry):
     """
 
     registry_type = RegistryType.VERRA
-    BASE_URL      = "https://api.verra.org/v1"
+    BASE_URL = "https://api.verra.org/v1"
 
     def __init__(self, api_key: str = "", dry_run: bool = False) -> None:
         super().__init__(dry_run=dry_run)
@@ -340,6 +343,7 @@ class VerraRegistry(BaseRegistry):
         if self.dry_run:
             log.info("verra.submit_claim.dry_run", claim_id=claim.claim_id)
             from dataclasses import replace
+
             return replace(claim, status=CreditStatus.PENDING)
 
         with httpx.Client(timeout=30) as client:
@@ -347,18 +351,18 @@ class VerraRegistry(BaseRegistry):
                 f"{self.BASE_URL}/credits/claim",
                 headers={"Authorization": f"Bearer {self._api_key}"},
                 json={
-                    "projectId":   claim.project_id,
-                    "quantity":    claim.co2e_avoided_t,
+                    "projectId": claim.project_id,
+                    "quantity": claim.co2e_avoided_t,
                     "periodStart": claim.period_start.isoformat(),
-                    "periodEnd":   claim.period_end.isoformat(),
+                    "periodEnd": claim.period_end.isoformat(),
                     "evidenceHash": claim.evidence_hash,
                 },
             )
             resp.raise_for_status()
             data = resp.json()
             from dataclasses import replace
-            return replace(claim, status=CreditStatus.PENDING,
-                           issued_credit_id=data.get("claimId"))
+
+            return replace(claim, status=CreditStatus.PENDING, issued_credit_id=data.get("claimId"))
 
     def get_credit(self, credit_id: str) -> CarbonCredit | None:
         if self.dry_run:

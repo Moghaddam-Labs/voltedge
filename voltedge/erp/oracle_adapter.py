@@ -22,7 +22,7 @@ For demo/test: uses inject_records() or use_mock=True.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -66,15 +66,15 @@ class OracleAdapter(BaseERPAdapter):
         tls_verify: bool = True,
     ) -> None:
         super().__init__(site_id=site_id)
-        self.ords_host   = ords_host
-        self.ords_port   = ords_port
+        self.ords_host = ords_host
+        self.ords_port = ords_port
         self.ords_schema = ords_schema
-        self.username    = username
-        self.password    = password
-        self.days_back   = days_back
-        self.timeout     = timeout
-        self.use_mock    = use_mock
-        self.tls_verify  = tls_verify
+        self.username = username
+        self.password = password
+        self.days_back = days_back
+        self.timeout = timeout
+        self.use_mock = use_mock
+        self.tls_verify = tls_verify
 
     async def _fetch_raw(self) -> list[dict[str, Any]]:
         if self.use_mock:
@@ -84,9 +84,9 @@ class OracleAdapter(BaseERPAdapter):
         if injected:
             return injected
 
-        now     = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         from_dt = (now - timedelta(days=self.days_back)).isoformat()
-        to_dt   = now.isoformat()
+        to_dt = now.isoformat()
 
         url = (
             f"https://{self.ords_host}:{self.ords_port}"
@@ -143,20 +143,23 @@ class OracleAdapter(BaseERPAdapter):
     def _generate_mock_readings(self) -> list[dict[str, Any]]:
         """Synthetic Oracle ORDS-shaped records for demo/test."""
         import random
+
         random.seed(abs(hash(self.site_id + "oracle")) % 9999)
         now = datetime.now(timezone.utc)
         records = []
         for h in range(self.days_back * 24):
             ts = now - timedelta(hours=h)
             kwh = round(max(0, random.gauss(280, 35)), 3)
-            records.append({
-                "meter_id":        f"ORC-{self.site_id}-M01",
-                "site_id":         self.site_id,
-                "reading_datetime": ts.isoformat(),
-                "energy_kwh":       kwh,
-                "unit_of_measure":  "KWH",
-                "cost_centre":      "CC-PLANT-002",
-                "currency":         "USD",
-                "cost_amount":      round(kwh * 0.18, 4),
-            })
+            records.append(
+                {
+                    "meter_id": f"ORC-{self.site_id}-M01",
+                    "site_id": self.site_id,
+                    "reading_datetime": ts.isoformat(),
+                    "energy_kwh": kwh,
+                    "unit_of_measure": "KWH",
+                    "cost_centre": "CC-PLANT-002",
+                    "currency": "USD",
+                    "cost_amount": round(kwh * 0.18, 4),
+                }
+            )
         return records

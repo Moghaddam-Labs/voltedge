@@ -39,10 +39,10 @@ from voltedge.utils.logger import get_logger
 log = get_logger(__name__)
 
 SITE_PROFILES = {
-    "factory":     {"base_kwh": 400, "amplitude": 120, "noise": 25},
-    "office":      {"base_kwh": 120, "amplitude":  60, "noise": 10},
-    "warehouse":   {"base_kwh": 200, "amplitude":  80, "noise": 15},
-    "data_center": {"base_kwh": 350, "amplitude":  30, "noise":  8},
+    "factory": {"base_kwh": 400, "amplitude": 120, "noise": 25},
+    "office": {"base_kwh": 120, "amplitude": 60, "noise": 10},
+    "warehouse": {"base_kwh": 200, "amplitude": 80, "noise": 15},
+    "data_center": {"base_kwh": 350, "amplitude": 30, "noise": 8},
 }
 
 
@@ -61,23 +61,23 @@ class LiveSimulator:
 
     def __init__(
         self,
-        broker:            BaseBroker,
-        sites:             list[str],
-        site_types:        dict[str, str] | None = None,
+        broker: BaseBroker,
+        sites: list[str],
+        site_types: dict[str, str] | None = None,
         events_per_second: float = 1.0,
-        anomaly_prob:      float = 0.02,
-        seed:              int | None = None,
+        anomaly_prob: float = 0.02,
+        seed: int | None = None,
     ) -> None:
-        self._broker   = broker
-        self._sites    = sites
-        self._types    = site_types or {}
-        self._eps      = max(0.01, events_per_second)
-        self._anom_p   = anomaly_prob
-        self._rng      = random.Random(seed)
-        self._running  = False
-        self._tasks:   list[asyncio.Task] = []
-        self._counts:  dict[str, int]     = {s: 0 for s in sites}
-        self._stop_ev  = asyncio.Event()
+        self._broker = broker
+        self._sites = sites
+        self._types = site_types or {}
+        self._eps = max(0.01, events_per_second)
+        self._anom_p = anomaly_prob
+        self._rng = random.Random(seed)
+        self._running = False
+        self._tasks: list[asyncio.Task] = []
+        self._counts: dict[str, int] = {s: 0 for s in sites}
+        self._stop_ev = asyncio.Event()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -105,8 +105,8 @@ class LiveSimulator:
 
     async def _site_loop(self, site_id: str) -> None:
         interval = 1.0 / self._eps
-        stype    = self._types.get(site_id, "factory")
-        profile  = SITE_PROFILES.get(stype, SITE_PROFILES["factory"])
+        stype = self._types.get(site_id, "factory")
+        profile = SITE_PROFILES.get(stype, SITE_PROFILES["factory"])
 
         log.debug("simulator.site_loop_start", site=site_id, type=stype)
         try:
@@ -121,23 +121,23 @@ class LiveSimulator:
 
     def _generate_event(
         self,
-        site_id:  str,
-        profile:  dict[str, float],
+        site_id: str,
+        profile: dict[str, float],
         sequence: int,
     ) -> EnergyEvent:
         """Generate one synthetic energy reading."""
         now = datetime.now(timezone.utc)
-        h   = now.hour + now.minute / 60.0
+        h = now.hour + now.minute / 60.0
 
         # Demand profile: sinusoidal daily curve
         demand_factor = 0.7 + 0.3 * math.sin(math.pi * (h - 6) / 12)
         base_kwh = profile["base_kwh"] * demand_factor
-        noise    = self._rng.gauss(0, profile["noise"])
-        kwh      = max(0.0, base_kwh + noise)
+        noise = self._rng.gauss(0, profile["noise"])
+        kwh = max(0.0, base_kwh + noise)
 
         anomaly_injected = False
         if self._rng.random() < self._anom_p:
-            kwh *= self._rng.uniform(3.0, 8.0)    # Spike: 3–8× normal
+            kwh *= self._rng.uniform(3.0, 8.0)  # Spike: 3–8× normal
             anomaly_injected = True
 
         return EnergyEvent(
@@ -154,9 +154,9 @@ class LiveSimulator:
 
     def stats(self) -> dict[str, Any]:
         return {
-            "running":           self._running,
-            "sites":             self._sites,
+            "running": self._running,
+            "sites": self._sites,
             "events_per_second": self._eps,
-            "counts":            dict(self._counts),
-            "total":             sum(self._counts.values()),
+            "counts": dict(self._counts),
+            "total": sum(self._counts.values()),
         }

@@ -5,6 +5,7 @@ Replaces the SimulatedSiteConnector as the primary data source.
 Falls back to the simulator only if the database has no data for the
 requested site (e.g. on a fresh install before seeding completes).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,10 +20,10 @@ from voltedge.utils.logger import get_logger
 log = get_logger(__name__)
 
 SITE_TYPES = {
-    "LONDON-FACTORY-01":      "factory",
-    "DUBAI-OFFICE-01":        "office",
+    "LONDON-FACTORY-01": "factory",
+    "DUBAI-OFFICE-01": "office",
     "ROTTERDAM-WAREHOUSE-01": "warehouse",
-    "FRANKFURT-DC-01":        "data_center",
+    "FRANKFURT-DC-01": "data_center",
 }
 
 
@@ -37,9 +38,7 @@ def load_site_readings(site_id: str, hours: int = 168) -> pd.DataFrame:
     """
     try:
         _dbmod.init_db()
-        cutoff = (
-            datetime.now(timezone.utc) - timedelta(hours=hours)
-        ).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
 
         with _dbmod.Session() as session:
             rows = (
@@ -56,15 +55,20 @@ def load_site_readings(site_id: str, hours: int = 168) -> pd.DataFrame:
             log.warning("loader.no_db_data", site=site_id, hours=hours)
             return _fallback(site_id, hours)
 
-        df = pd.DataFrame([{
-            "timestamp":     r.timestamp,
-            "site_id":       r.site_id,
-            "kwh":           r.kwh,
-            "voltage_v":     r.voltage_v,
-            "current_a":     r.current_a,
-            "power_factor":  r.power_factor,
-            "temperature_c": r.temperature_c,
-        } for r in rows])
+        df = pd.DataFrame(
+            [
+                {
+                    "timestamp": r.timestamp,
+                    "site_id": r.site_id,
+                    "kwh": r.kwh,
+                    "voltage_v": r.voltage_v,
+                    "current_a": r.current_a,
+                    "power_factor": r.power_factor,
+                    "temperature_c": r.temperature_c,
+                }
+                for r in rows
+            ]
+        )
 
         log.debug("loader.db_hit", site=site_id, rows=len(df))
         return df
@@ -77,13 +81,10 @@ def load_site_readings(site_id: str, hours: int = 168) -> pd.DataFrame:
 def _fallback(site_id: str, hours: int) -> pd.DataFrame:
     """Simulator fallback — used only if DB is empty or unavailable."""
     from voltedge.ingestion.simulators import SimulatedSiteConnector
-    from voltedge.processing.transformer import EnergyTransformer
 
     log.info("loader.fallback_to_simulator", site=site_id, hours=hours)
-    stype  = SITE_TYPES.get(site_id, "factory")
-    conn   = SimulatedSiteConnector(
-        site_id, stype, hours=hours, seed=abs(hash(site_id)) % 9999
-    )
+    stype = SITE_TYPES.get(site_id, "factory")
+    conn = SimulatedSiteConnector(site_id, stype, hours=hours, seed=abs(hash(site_id)) % 9999)
     result = asyncio.run(conn.fetch())
     if result.data.empty:
         return pd.DataFrame()

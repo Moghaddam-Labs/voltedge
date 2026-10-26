@@ -1,9 +1,8 @@
 """Tests for the 90-day seeder."""
+
 from __future__ import annotations
 
-import os
 import pytest
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -18,9 +17,10 @@ def isolated_db(tmp_path, monkeypatch):
     monkeypatch.setenv("VOLTEDGE_ENERGY_DB", db_path)
     # Patch engine and Session in the database module
     import voltedge.db.database as dbmod
-    engine  = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-    monkeypatch.setattr(dbmod, "engine",  engine)
+    monkeypatch.setattr(dbmod, "engine", engine)
     monkeypatch.setattr(dbmod, "Session", Session)
     Base.metadata.create_all(engine)
     yield engine, Session
@@ -28,12 +28,14 @@ def isolated_db(tmp_path, monkeypatch):
 
 def test_seed_inserts_rows(isolated_db):
     from voltedge.db.seeder import seed
+
     n = seed()
     assert n > 0
 
 
 def test_seed_covers_all_sites(isolated_db):
-    from voltedge.db.seeder import seed, PROFILES
+    from voltedge.db.seeder import PROFILES, seed
+
     engine, Session = isolated_db
     seed()
     with Session() as s:
@@ -42,7 +44,8 @@ def test_seed_covers_all_sites(isolated_db):
 
 
 def test_seed_90_days_per_site(isolated_db):
-    from voltedge.db.seeder import seed, PROFILES, DAYS
+    from voltedge.db.seeder import DAYS, PROFILES, seed
+
     engine, Session = isolated_db
     seed()
     with Session() as s:
@@ -54,26 +57,29 @@ def test_seed_90_days_per_site(isolated_db):
 
 def test_seed_is_idempotent(isolated_db):
     from voltedge.db.seeder import seed
+
     engine, Session = isolated_db
     n1 = seed()
-    n2 = seed()   # second call — should skip
+    n2 = seed()  # second call — should skip
     assert n1 > 0
-    assert n2 == 0   # skipped — data exists
+    assert n2 == 0  # skipped — data exists
 
 
 def test_seed_force_rewipes(isolated_db):
     from voltedge.db.seeder import seed
+
     engine, Session = isolated_db
     n1 = seed()
     n2 = seed(force=True)
-    assert n2 > 0   # re-seeded
+    assert n2 > 0  # re-seeded
     with Session() as s:
         total = s.query(EnergyReading).count()
-    assert total == n2   # no duplicates
+    assert total == n2  # no duplicates
 
 
 def test_seed_anomalies_injected(isolated_db):
     from voltedge.db.seeder import seed
+
     engine, Session = isolated_db
     seed()
     with Session() as s:
@@ -84,6 +90,7 @@ def test_seed_anomalies_injected(isolated_db):
 
 def test_seed_kwh_positive(isolated_db):
     from voltedge.db.seeder import seed
+
     engine, Session = isolated_db
     seed()
     with Session() as s:
@@ -93,6 +100,7 @@ def test_seed_kwh_positive(isolated_db):
 
 def test_seed_timestamps_are_utc(isolated_db):
     from voltedge.db.seeder import seed
+
     engine, Session = isolated_db
     seed()
     with Session() as s:

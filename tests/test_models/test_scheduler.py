@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
-import pytest
 
 from voltedge.core.scheduler import ModelScheduler
 from voltedge.storage.base import LocalStore
@@ -35,7 +33,7 @@ def test_scheduler_trigger_now_with_no_data(tmp_path):
     """trigger_now with no stored data should not raise — just log a warning."""
     store = LocalStore(base_path=tmp_path)
     scheduler = ModelScheduler(store=store, sites=["EMPTY-SITE"], retrain_hours=168)
-    scheduler.trigger_now()   # Should complete without exception
+    scheduler.trigger_now()  # Should complete without exception
 
 
 def test_scheduler_callback_called(tmp_path):
@@ -51,12 +49,15 @@ def test_scheduler_callback_called(tmp_path):
     store.write(df, site_id="CB-SITE", layer="processed")
 
     called: list[tuple] = []
+
     def on_retrain(site_id, model_name, metrics):
         called.append((site_id, model_name, metrics))
 
     scheduler = ModelScheduler(
-        store=store, sites=["CB-SITE"],
-        retrain_hours=168, artifact_dir=str(tmp_path),
+        store=store,
+        sites=["CB-SITE"],
+        retrain_hours=168,
+        artifact_dir=str(tmp_path),
         on_retrain=on_retrain,
     )
     scheduler.trigger_now()

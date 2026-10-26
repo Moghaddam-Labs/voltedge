@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -90,14 +91,12 @@ class EnergyTransformer:
         ts = df["timestamp"]
 
         df["hour"] = ts.dt.hour
-        df["day_of_week"] = ts.dt.dayofweek          # 0=Mon, 6=Sun
+        df["day_of_week"] = ts.dt.dayofweek  # 0=Mon, 6=Sun
         df["day_of_year"] = ts.dt.dayofyear
         df["month"] = ts.dt.month
         df["week_of_year"] = ts.dt.isocalendar().week.astype(int)
         df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
-        df["is_business_hour"] = (
-            (df["hour"].between(8, 18)) & (df["is_weekend"] == 0)
-        ).astype(int)
+        df["is_business_hour"] = ((df["hour"].between(8, 18)) & (df["is_weekend"] == 0)).astype(int)
 
         # Cyclic encoding — prevents the model treating 23:00 → 00:00 as a gap
         df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)

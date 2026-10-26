@@ -1,18 +1,23 @@
 """Tests for the energy digital twin."""
+
 from __future__ import annotations
+
 import asyncio
+
 import pytest
 
-from voltedge.causal.graph import CausalGraphBuilder
 from voltedge.causal.digital_twin import (
-    EnergyDigitalTwin, Scenario, ScenarioComparison,
-    ScenarioParameter, TwinSimulationResult,
+    EnergyDigitalTwin,
+    Scenario,
+    ScenarioComparison,
+    TwinSimulationResult,
 )
+from voltedge.causal.graph import CausalGraphBuilder
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
 
 SITE = "TWIN-TEST-01"
-SIM_HOURS = 168   # 1 week — fast for tests
+SIM_HOURS = 168  # 1 week — fast for tests
 
 
 @pytest.fixture(scope="module")
@@ -22,8 +27,9 @@ def twin():
     df = EnergyTransformer().transform(result.data)
     graph = CausalGraphBuilder(alpha=0.05, min_samples=48).build(df, SITE)
     return EnergyDigitalTwin(
-        graph=graph, df=df,
-        n_simulations=10,   # Fast for tests
+        graph=graph,
+        df=df,
+        n_simulations=10,  # Fast for tests
         seed=42,
     )
 
@@ -34,6 +40,7 @@ def baseline(twin):
 
 
 # ── TwinSimulationResult ──────────────────────────────────────────────────────
+
 
 def test_baseline_returns_result(baseline):
     assert isinstance(baseline, TwinSimulationResult)
@@ -53,7 +60,7 @@ def test_baseline_kwh_non_negative(baseline):
 
 
 def test_baseline_p10_le_mean_le_p90(baseline):
-    for lo, mid, hi in zip(baseline.kwh_p10, baseline.kwh_mean, baseline.kwh_p90):
+    for lo, mid, hi in zip(baseline.kwh_p10, baseline.kwh_mean, baseline.kwh_p90, strict=False):
         assert lo <= mid + 0.01
         assert mid <= hi + 0.01
 
@@ -72,8 +79,15 @@ def test_baseline_peak_ge_avg(baseline):
 
 def test_baseline_to_dict_keys(baseline):
     d = baseline.to_dict()
-    for k in ("scenario", "total_kwh", "peak_kw", "avg_kw",
-              "total_co2_kg", "total_cost", "hourly_preview"):
+    for k in (
+        "scenario",
+        "total_kwh",
+        "peak_kw",
+        "avg_kw",
+        "total_co2_kg",
+        "total_cost",
+        "hourly_preview",
+    ):
         assert k in d
 
 
@@ -84,6 +98,7 @@ def test_baseline_hourly_preview_48h(baseline):
 
 
 # ── Scenarios ─────────────────────────────────────────────────────────────────
+
 
 def test_run_solar_scenario(twin):
     scenario = EnergyDigitalTwin.solar_scenario(capacity_kwp=100)
@@ -111,15 +126,15 @@ def test_run_night_shift_scenario(twin):
 
 
 def test_custom_scenario(twin):
-    scenario = Scenario(
-        name="Weekend only",
-        description="Run only on weekends"
-    ).add_parameter("is_business_hour", 0.0)
+    scenario = Scenario(name="Weekend only", description="Run only on weekends").add_parameter(
+        "is_business_hour", 0.0
+    )
     result = twin.run_scenario(scenario, hours=SIM_HOURS)
     assert result.total_kwh >= 0
 
 
 # ── compare_scenarios ─────────────────────────────────────────────────────────
+
 
 def test_compare_scenarios_returns_comparison(twin):
     scenarios = [
@@ -131,16 +146,13 @@ def test_compare_scenarios_returns_comparison(twin):
 
 
 def test_compare_has_baseline(twin):
-    comparison = twin.compare_scenarios(
-        [EnergyDigitalTwin.solar_scenario(50)], hours=SIM_HOURS
-    )
+    comparison = twin.compare_scenarios([EnergyDigitalTwin.solar_scenario(50)], hours=SIM_HOURS)
     assert comparison.baseline.scenario_name == "Baseline (no intervention)"
 
 
 def test_compare_ranked_by_saving(twin):
     comparison = twin.compare_scenarios(
-        [EnergyDigitalTwin.solar_scenario(100),
-         EnergyDigitalTwin.ev_fleet_scenario(5)],
+        [EnergyDigitalTwin.solar_scenario(100), EnergyDigitalTwin.ev_fleet_scenario(5)],
         hours=SIM_HOURS,
     )
     ranked = comparison.ranked_by_saving()
@@ -151,17 +163,13 @@ def test_compare_ranked_by_saving(twin):
 
 
 def test_compare_best_scenario_name(twin):
-    comparison = twin.compare_scenarios(
-        [EnergyDigitalTwin.solar_scenario(200)], hours=SIM_HOURS
-    )
+    comparison = twin.compare_scenarios([EnergyDigitalTwin.solar_scenario(200)], hours=SIM_HOURS)
     assert comparison.best_scenario is not None
     assert isinstance(comparison.best_scenario.scenario_name, str)
 
 
 def test_compare_to_dict_keys(twin):
-    comparison = twin.compare_scenarios(
-        [EnergyDigitalTwin.solar_scenario(50)], hours=SIM_HOURS
-    )
+    comparison = twin.compare_scenarios([EnergyDigitalTwin.solar_scenario(50)], hours=SIM_HOURS)
     d = comparison.to_dict()
     assert "baseline" in d
     assert "scenarios" in d
@@ -169,6 +177,7 @@ def test_compare_to_dict_keys(twin):
 
 
 # ── Scenario templates ────────────────────────────────────────────────────────
+
 
 def test_solar_scenario_has_capex():
     s = EnergyDigitalTwin.solar_scenario(100)

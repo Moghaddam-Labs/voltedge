@@ -1,9 +1,16 @@
 """Tests for Scope 3 calculator."""
+
 from __future__ import annotations
+
 from datetime import datetime, timezone
+
 import pytest
+
 from voltedge.scope3.calculator import (
-    EMISSION_FACTORS, Scope3Activity, Scope3Calculator, Scope3Category, Scope3Report,
+    EMISSION_FACTORS,
+    Scope3Activity,
+    Scope3Calculator,
+    Scope3Category,
 )
 
 ENTITY = "SHELL-UK-UPSTREAM"
@@ -17,13 +24,14 @@ def calc():
 
 # ── Scope3Activity ────────────────────────────────────────────────────────────
 
+
 def test_activity_tco2e_calculation():
     a = Scope3Activity(
         category=Scope3Category.UPSTREAM_TRANSPORT,
         description="Road freight",
-        quantity=10_000.0,    # tonne-km
+        quantity=10_000.0,  # tonne-km
         unit="tonne-km",
-        emission_factor=0.0762,   # kg CO₂e/tonne-km
+        emission_factor=0.0762,  # kg CO₂e/tonne-km
     )
     assert a.tco2e == pytest.approx(0.762, rel=0.01)
 
@@ -32,7 +40,8 @@ def test_activity_tco2e_zero_quantity():
     a = Scope3Activity(
         category=Scope3Category.BUSINESS_TRAVEL,
         description="Nil travel",
-        quantity=0.0, unit="km",
+        quantity=0.0,
+        unit="km",
         emission_factor=0.25,
     )
     assert a.tco2e == 0.0
@@ -40,9 +49,10 @@ def test_activity_tco2e_zero_quantity():
 
 # ── Scope3Calculator ──────────────────────────────────────────────────────────
 
+
 def test_add_transport_returns_self(calc):
     result = calc.add_transport("road_transport_hgv", 50_000.0)
-    assert result is calc   # fluent interface
+    assert result is calc  # fluent interface
 
 
 def test_add_transport_adds_activity(calc):
@@ -93,8 +103,7 @@ def test_add_custom_activity(calc):
 
 def test_fluent_chaining(calc):
     report = (
-        calc
-        .add_transport("road_transport_hgv", 100_000.0)
+        calc.add_transport("road_transport_hgv", 100_000.0)
         .add_business_travel("flight_long_haul", 20_000.0)
         .add_waste("landfill_mixed", 5.0)
         .generate_report()
@@ -117,6 +126,7 @@ def test_available_factors_sorted(calc):
 
 
 # ── Scope3Report ──────────────────────────────────────────────────────────────
+
 
 def test_report_by_category_groups_correctly():
     calc = Scope3Calculator(ENTITY)
@@ -156,8 +166,8 @@ def test_report_data_quality_mix():
     report = calc.generate_report()
     mix = report.to_dict()["data_quality_mix"]
     assert mix["calculated"] == 1
-    assert mix["estimated"]  == 1
-    assert mix["measured"]   == 0
+    assert mix["estimated"] == 1
+    assert mix["measured"] == 0
 
 
 def test_report_total_is_sum_of_activities():

@@ -25,10 +25,10 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-import bcrypt
 from pydantic import BaseModel
 
 from voltedge.utils.logger import get_logger
@@ -63,25 +63,28 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # ── Token models ──────────────────────────────────────────────────────────────
 
+
 class TokenData(BaseModel):
     username: str
-    scopes:   list[str] = []
-    exp:      datetime | None = None
+    scopes: list[str] = []
+    exp: datetime | None = None
 
 
 class UserPrincipal(BaseModel):
     """Resolved identity attached to a request after successful auth."""
+
     username: str
-    scopes:   list[str]
+    scopes: list[str]
 
 
 class Token(BaseModel):
     access_token: str
-    token_type:   str = "bearer"
-    expires_in:   int          # seconds
+    token_type: str = "bearer"
+    expires_in: int  # seconds
 
 
 # ── Token creation ────────────────────────────────────────────────────────────
+
 
 def create_access_token(
     username: str,
@@ -110,15 +113,16 @@ def create_access_token(
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload = {
-        "sub":    username,
+        "sub": username,
         "scopes": scopes,
-        "exp":    expire,
-        "iat":    datetime.now(timezone.utc),
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 # ── Token validation ──────────────────────────────────────────────────────────
+
 
 def decode_token(token: str) -> TokenData:
     """
@@ -144,7 +148,7 @@ def decode_token(token: str) -> TokenData:
         )
     except JWTError as exc:
         log.warning("auth.jwt_error", error=str(exc))
-        raise credentials_exception
+        raise credentials_exception from exc
 
 
 # ── FastAPI dependencies ──────────────────────────────────────────────────────
@@ -171,9 +175,8 @@ def require_scope(required_scope: str):
         def endpoint(user = Depends(require_scope("admin"))):
             ...
     """
-    def _checker(
-        token: Annotated[str, Depends(_oauth2_scheme)]
-    ) -> UserPrincipal:
+
+    def _checker(token: Annotated[str, Depends(_oauth2_scheme)]) -> UserPrincipal:
         data = decode_token(token)
         if required_scope not in data.scopes:
             log.warning(
@@ -187,6 +190,7 @@ def require_scope(required_scope: str):
                 detail=f"Scope '{required_scope}' required.",
             )
         return UserPrincipal(username=data.username, scopes=data.scopes)
+
     return _checker
 
 
@@ -223,8 +227,8 @@ def authenticate_user(username: str, password: str) -> UserPrincipal | None:
 
 # ── /auth/token endpoint (wired into app by auth_router) ─────────────────────
 
-from fastapi import APIRouter
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter  # noqa: E402
+from fastapi.security import OAuth2PasswordRequestForm  # noqa: E402
 
 auth_router = APIRouter(prefix="/auth", tags=["Auth"])
 

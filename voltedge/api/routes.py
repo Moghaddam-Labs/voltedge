@@ -13,20 +13,24 @@ via FastAPI dependency injection, making them trivially swappable in tests.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from voltedge.api.models import (
-    AnomalyPoint, AnomalyResponse,
+    AnomalyPoint,
+    AnomalyResponse,
     ESGResponse,
-    ForecastPoint, ForecastResponse,
+    ForecastPoint,
+    ForecastResponse,
     HealthResponse,
-    OptimizationResponse, RecommendationItem,
-    SimulateRequest, SimulateResponse,
-    SiteDataResponse, SiteListResponse,
+    OptimizationResponse,
+    RecommendationItem,
+    SimulateRequest,
+    SimulateResponse,
+    SiteDataResponse,
+    SiteListResponse,
     TariffType,
 )
 from voltedge.core.pipeline import EnergyPipeline
@@ -35,7 +39,6 @@ from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.models.anomaly import AnomalyDetector
 from voltedge.models.forecasting import DemandForecaster
 from voltedge.models.optimization import CostOptimizer
-from voltedge.processing.transformer import EnergyTransformer
 from voltedge.storage.base import BaseStore, LocalStore
 from voltedge.utils.logger import get_logger
 
@@ -55,18 +58,20 @@ StoreDep = Annotated[BaseStore, Depends(get_store)]
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
-health_router    = APIRouter(tags=["Health"])
-pipeline_router  = APIRouter(prefix="/pipeline",  tags=["Pipeline"])
-sites_router     = APIRouter(prefix="/sites",     tags=["Sites"])
+health_router = APIRouter(tags=["Health"])
+pipeline_router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
+sites_router = APIRouter(prefix="/sites", tags=["Sites"])
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
 # ── /health ───────────────────────────────────────────────────────────────────
 
+
 @health_router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Liveness probe. Returns 200 when the API is running."""
     from config.settings import settings
+
     return HealthResponse(
         status="ok",
         version=settings.app_version,
@@ -78,6 +83,7 @@ async def health() -> HealthResponse:
 async def ready(store: StoreDep) -> HealthResponse:
     """Readiness probe. Checks storage connectivity."""
     from config.settings import settings
+
     try:
         store.list_sites()
         return HealthResponse(
@@ -86,10 +92,11 @@ async def ready(store: StoreDep) -> HealthResponse:
             timestamp=datetime.now(timezone.utc),
         )
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Storage unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=f"Storage unavailable: {exc}") from exc
 
 
 # ── /pipeline ─────────────────────────────────────────────────────────────────
+
 
 @pipeline_router.post("/simulate", response_model=SimulateResponse, status_code=201)
 async def simulate(body: SimulateRequest, store: StoreDep) -> SimulateResponse:
@@ -98,6 +105,7 @@ async def simulate(body: SimulateRequest, store: StoreDep) -> SimulateResponse:
     Creates both raw and processed Parquet files in storage.
     """
     import time
+
     start = time.perf_counter()
 
     connector = SimulatedSiteConnector(
@@ -127,6 +135,7 @@ async def simulate(body: SimulateRequest, store: StoreDep) -> SimulateResponse:
 
 # ── /sites ────────────────────────────────────────────────────────────────────
 
+
 @sites_router.get("/", response_model=SiteListResponse)
 def list_sites(store: StoreDep) -> SiteListResponse:
     """Return all site IDs that have data in storage."""
@@ -139,14 +148,14 @@ def get_site_data(
     site_id: str,
     store: StoreDep,
     layer: str = Query(default="processed", pattern="^(raw|processed)$"),
-    days:  int = Query(default=7, ge=1, le=365),
+    days: int = Query(default=7, ge=1, le=365),
 ) -> SiteDataResponse:
     """Read recent data for a site. Returns metadata + first 5 rows as preview."""
     df = store.read(site_id, layer=layer, days=days)
     if df.empty:
         raise HTTPException(
             status_code=404,
-            detail=f"No data found for site '{site_id}' in layer '{layer}' over last {days} days."
+            detail=f"No data found for site '{site_id}' in layer '{layer}' over last {days} days.",
         )
 
     preview_df = df.head(5).copy()
@@ -165,6 +174,7 @@ def get_site_data(
 
 # ── /analytics ────────────────────────────────────────────────────────────────
 
+
 @analytics_router.post("/{site_id}/forecast", response_model=ForecastResponse)
 def get_forecast(
     site_id: str,
@@ -178,8 +188,7 @@ def get_forecast(
         raise HTTPException(status_code=404, detail=f"No processed data for '{site_id}'.")
     if len(df) < 48:
         raise HTTPException(
-            status_code=422,
-            detail=f"Insufficient data: need ≥48 rows, got {len(df)}."
+            status_code=422, detail=f"Insufficient data: need ≥48 rows, got {len(df)}."
         )
 
     forecaster = DemandForecaster(site_id=site_id, horizon_hours=horizon_hours)

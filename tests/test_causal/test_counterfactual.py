@@ -1,13 +1,18 @@
 """Tests for the counterfactual engine."""
-from __future__ import annotations
-import asyncio
-import pytest
-import pandas as pd
 
-from voltedge.causal.graph import CausalGraphBuilder
+from __future__ import annotations
+
+import asyncio
+
+import pandas as pd
+import pytest
+
 from voltedge.causal.counterfactual import (
-    CounterfactualEngine, CounterfactualResult, Intervention,
+    CounterfactualEngine,
+    CounterfactualResult,
+    Intervention,
 )
+from voltedge.causal.graph import CausalGraphBuilder
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
 
@@ -25,6 +30,7 @@ def df_and_engine():
 
 
 # ── Intervention ──────────────────────────────────────────────────────────────
+
 
 def test_intervention_fields():
     iv = Intervention("temperature_c", 20.0, "Cool to 20°C", feasibility="high")
@@ -54,6 +60,7 @@ def test_power_factor_intervention():
 
 # ── compute() ─────────────────────────────────────────────────────────────────
 
+
 def test_compute_returns_result(df_and_engine):
     df, engine = df_and_engine
     iv = Intervention("is_business_hour", 0.0, "Off-peak shift")
@@ -82,8 +89,15 @@ def test_compute_result_to_dict_keys(df_and_engine):
     iv = Intervention("is_business_hour", 0.0)
     result = engine.compute(df, iv)
     d = result.to_dict()
-    for k in ("intervention", "baseline_value", "counterfactual_value",
-              "delta", "delta_pct", "annual_kwh_impact", "narrative"):
+    for k in (
+        "intervention",
+        "baseline_value",
+        "counterfactual_value",
+        "delta",
+        "delta_pct",
+        "annual_kwh_impact",
+        "narrative",
+    ):
         assert k in d
 
 
@@ -127,6 +141,7 @@ def test_compute_is_beneficial_flag(df_and_engine):
 
 # ── multi_intervention() ──────────────────────────────────────────────────────
 
+
 def test_multi_intervention_structure(df_and_engine):
     df, engine = df_and_engine
     ivs = [
@@ -150,10 +165,9 @@ def test_multi_intervention_combined_delta(df_and_engine):
 
 # ── Confidence assessment ─────────────────────────────────────────────────────
 
+
 def test_low_confidence_short_df():
-    c = CounterfactualEngine._assess_confidence(
-        pd.DataFrame({"kwh": [1.0] * 50}), [0, 1, 2], 10.0
-    )
+    c = CounterfactualEngine._assess_confidence(pd.DataFrame({"kwh": [1.0] * 50}), [0, 1, 2], 10.0)
     assert c == "low"
 
 

@@ -23,29 +23,31 @@ import pandas as pd
 @dataclass
 class ERPReading:
     """Canonical energy reading from any ERP system."""
-    site_id:        str
-    meter_id:       str
-    timestamp:      datetime
-    kwh:            float
-    cost_centre:    str              = ""
-    currency:       str              = "USD"
-    cost_amount:    float | None     = None
-    unit_of_measure: str             = "KWH"
-    erp_source:     str              = "generic"
-    raw_payload:    dict[str, Any]   = field(default_factory=dict)
+
+    site_id: str
+    meter_id: str
+    timestamp: datetime
+    kwh: float
+    cost_centre: str = ""
+    currency: str = "USD"
+    cost_amount: float | None = None
+    unit_of_measure: str = "KWH"
+    erp_source: str = "generic"
+    raw_payload: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ERPFetchResult:
     """Result of a single ERP fetch operation."""
-    source:           str
-    site_id:          str
-    records_fetched:  int
-    records_valid:    int
-    records_invalid:  int
-    data:             pd.DataFrame
-    errors:           list[str]   = field(default_factory=list)
-    fetched_at:       datetime    = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    source: str
+    site_id: str
+    records_fetched: int
+    records_valid: int
+    records_invalid: int
+    data: pd.DataFrame
+    errors: list[str] = field(default_factory=list)
+    fetched_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def success_rate(self) -> float:
@@ -82,16 +84,18 @@ class BaseERPAdapter(ABC):
                 reading = self._parse(rec)
                 if reading.kwh < 0:
                     raise ValueError(f"Negative kWh: {reading.kwh}")
-                valid.append({
-                    "site_id":        reading.site_id,
-                    "meter_id":       reading.meter_id,
-                    "timestamp":      reading.timestamp,
-                    "kwh":            reading.kwh,
-                    "cost_centre":    reading.cost_centre,
-                    "currency":       reading.currency,
-                    "cost_amount":    reading.cost_amount,
-                    "erp_source":     reading.erp_source,
-                })
+                valid.append(
+                    {
+                        "site_id": reading.site_id,
+                        "meter_id": reading.meter_id,
+                        "timestamp": reading.timestamp,
+                        "kwh": reading.kwh,
+                        "cost_centre": reading.cost_centre,
+                        "currency": reading.currency,
+                        "cost_amount": reading.cost_amount,
+                        "erp_source": reading.erp_source,
+                    }
+                )
             except Exception as exc:
                 invalid += 1
                 errors.append(str(exc))

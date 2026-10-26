@@ -23,7 +23,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-import pandas as pd
 from voltedge.ingestion.base import BaseConnector, IngestionResult
 from voltedge.processing.transformer import EnergyTransformer
 from voltedge.storage.base import BaseStore
@@ -94,12 +93,11 @@ class EnergyPipeline:
         log.info("pipeline.run_start", sites=list(self._connectors.keys()))
 
         tasks = [
-            self._run_site(site_id, connector)
-            for site_id, connector in self._connectors.items()
+            self._run_site(site_id, connector) for site_id, connector in self._connectors.items()
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for site_id, result in zip(self._connectors.keys(), results):
+        for site_id, result in zip(self._connectors.keys(), results, strict=False):
             if isinstance(result, Exception):
                 log.error("pipeline.site_failed", site=site_id, error=str(result))
                 summary.total_errors += 1

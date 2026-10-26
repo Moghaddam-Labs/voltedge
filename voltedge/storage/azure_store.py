@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import io
 import uuid
-from datetime import timedelta
-from typing import TYPE_CHECKING
 
 import pandas as pd
 
@@ -40,13 +38,14 @@ log = get_logger(__name__)
 # Azure SDK is an optional dependency — guard import so the rest of VoltEdge
 # still works when the azure package isn't installed (e.g. on AWS deployments).
 try:
+    from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError  # noqa: F401
     from azure.storage.blob import (
+        BlobSasPermissions,  # noqa: F401
         BlobServiceClient,
         ContainerClient,
-        generate_blob_sas,
-        BlobSasPermissions,
+        generate_blob_sas,  # noqa: F401
     )
-    from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+
     _AZURE_AVAILABLE = True
 except ImportError:
     _AZURE_AVAILABLE = False
@@ -55,8 +54,7 @@ except ImportError:
 def _require_azure() -> None:
     if not _AZURE_AVAILABLE:
         raise ImportError(
-            "azure-storage-blob is not installed. "
-            "Run: pip install azure-storage-blob"
+            "azure-storage-blob is not installed. Run: pip install azure-storage-blob"
         )
 
 
@@ -146,7 +144,7 @@ class AzureBlobStore(BaseStore):
         sites: set[str] = set()
         for blob in blobs:
             # Extract site_id from: raw/site_id=X/year=.../...
-            parts = blob.name[len(prefix):].split("/")
+            parts = blob.name[len(prefix) :].split("/")
             if parts and parts[0].startswith("site_id="):
                 sites.add(parts[0].replace("site_id=", ""))
         return sorted(sites)

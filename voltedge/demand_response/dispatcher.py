@@ -23,7 +23,6 @@ Settlement is calculated at event close using metered data from storage.
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -31,7 +30,9 @@ from typing import Any
 import pandas as pd
 
 from voltedge.demand_response.events import (
-    DREvent, DREventStatus, DREventType, SiteResponse, SiteResponseStatus,
+    DREvent,
+    SiteResponse,
+    SiteResponseStatus,
 )
 from voltedge.utils.logger import get_logger
 
@@ -41,35 +42,36 @@ log = get_logger(__name__)
 @dataclass
 class ShedAction:
     """A single load curtailment action issued to a site asset."""
-    action_id:    str
-    asset_type:   str          # "ev_charging", "hvac", "lighting", "batch_process"
-    site_id:      str
-    command:      str          # "off", "reduce_50pct", "setpoint_adjust"
-    target_kw:    float        # Expected kW reduction from this action
-    priority:     int          # Lower = shed first
-    reversible:   bool = True  # Can be un-shed when event ends
-    issued_at:    datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    action_id: str
+    asset_type: str  # "ev_charging", "hvac", "lighting", "batch_process"
+    site_id: str
+    command: str  # "off", "reduce_50pct", "setpoint_adjust"
+    target_kw: float  # Expected kW reduction from this action
+    priority: int  # Lower = shed first
+    reversible: bool = True  # Can be un-shed when event ends
+    issued_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "action_id":  self.action_id,
+            "action_id": self.action_id,
             "asset_type": self.asset_type,
-            "site_id":    self.site_id,
-            "command":    self.command,
-            "target_kw":  self.target_kw,
-            "priority":   self.priority,
+            "site_id": self.site_id,
+            "command": self.command,
+            "target_kw": self.target_kw,
+            "priority": self.priority,
             "reversible": self.reversible,
         }
 
 
 # Load shed asset catalogue (priority order)
 SHEDDABLE_ASSETS = [
-    {"type": "ev_charging",      "priority": 1, "typical_kw": 22.0,  "command": "off"},
-    {"type": "hvac_precool",     "priority": 2, "typical_kw": 15.0,  "command": "setpoint_adjust"},
-    {"type": "lighting_noncore", "priority": 3, "typical_kw": 8.0,   "command": "reduce_50pct"},
-    {"type": "batch_process",    "priority": 4, "typical_kw": 50.0,  "command": "pause"},
-    {"type": "compressed_air",   "priority": 5, "typical_kw": 12.0,  "command": "setpoint_adjust"},
-    {"type": "refrigeration_nc", "priority": 6, "typical_kw": 10.0,  "command": "setpoint_adjust"},
+    {"type": "ev_charging", "priority": 1, "typical_kw": 22.0, "command": "off"},
+    {"type": "hvac_precool", "priority": 2, "typical_kw": 15.0, "command": "setpoint_adjust"},
+    {"type": "lighting_noncore", "priority": 3, "typical_kw": 8.0, "command": "reduce_50pct"},
+    {"type": "batch_process", "priority": 4, "typical_kw": 50.0, "command": "pause"},
+    {"type": "compressed_air", "priority": 5, "typical_kw": 12.0, "command": "setpoint_adjust"},
+    {"type": "refrigeration_nc", "priority": 6, "typical_kw": 10.0, "command": "setpoint_adjust"},
 ]
 
 
@@ -86,17 +88,17 @@ class DemandResponseDispatcher:
 
     def __init__(
         self,
-        store:                  Any = None,
-        site_assets:            dict[str, float] | None = None,
-        auto_respond:           bool  = True,
-        min_revenue_per_event:  float = 50.0,
+        store: Any = None,
+        site_assets: dict[str, float] | None = None,
+        auto_respond: bool = True,
+        min_revenue_per_event: float = 50.0,
     ) -> None:
-        self._store           = store
-        self._assets          = site_assets or {}
-        self._auto_respond    = auto_respond
-        self._min_revenue     = min_revenue_per_event
-        self._responses:      dict[str, SiteResponse] = {}
-        self._shed_actions:   dict[str, list[ShedAction]] = {}
+        self._store = store
+        self._assets = site_assets or {}
+        self._auto_respond = auto_respond
+        self._min_revenue = min_revenue_per_event
+        self._responses: dict[str, SiteResponse] = {}
+        self._shed_actions: dict[str, list[ShedAction]] = {}
 
     # ── Event handling ────────────────────────────────────────────────────────
 
@@ -106,29 +108,30 @@ class DemandResponseDispatcher:
 
         Returns a dict with recommendation, expected_revenue, and shed_plan.
         """
-        potential_rev  = event.potential_revenue
-        shed_plan      = self._plan_shed(event.target_reduction_kw, site_id)
-        feasible_kw    = sum(a.target_kw for a in shed_plan)
-        can_commit     = feasible_kw >= event.min_response_kw
+        potential_rev = event.potential_revenue
+        shed_plan = self._plan_shed(event.target_reduction_kw, site_id)
+        feasible_kw = sum(a.target_kw for a in shed_plan)
+        can_commit = feasible_kw >= event.min_response_kw
 
         recommendation = (
-            "opt_in"  if (can_commit and (
-                event.mandatory or
-                (self._auto_respond and potential_rev >= self._min_revenue)
-            )) else
-            "opt_out"
+            "opt_in"
+            if (
+                can_commit
+                and (event.mandatory or (self._auto_respond and potential_rev >= self._min_revenue))
+            )
+            else "opt_out"
         )
 
         return {
-            "event_id":         event.event_id,
-            "site_id":          site_id,
-            "recommendation":   recommendation,
-            "feasible_kw":      round(feasible_kw, 1),
-            "target_kw":        event.target_reduction_kw,
+            "event_id": event.event_id,
+            "site_id": site_id,
+            "recommendation": recommendation,
+            "feasible_kw": round(feasible_kw, 1),
+            "target_kw": event.target_reduction_kw,
             "expected_revenue": potential_rev,
-            "currency":         event.currency,
-            "shed_plan":        [a.to_dict() for a in shed_plan],
-            "mandatory":        event.mandatory,
+            "currency": event.currency,
+            "shed_plan": [a.to_dict() for a in shed_plan],
+            "mandatory": event.mandatory,
         }
 
     def opt_in(self, event: DREvent, site_id: str, committed_kw: float) -> SiteResponse:
@@ -142,8 +145,7 @@ class DemandResponseDispatcher:
         self._responses[f"{event.event_id}:{site_id}"] = response
         shed_plan = self._plan_shed(committed_kw, site_id)
         self._shed_actions[f"{event.event_id}:{site_id}"] = shed_plan
-        log.info("dr.opted_in", site=site_id, event_id=event.event_id,
-                 committed_kw=committed_kw)
+        log.info("dr.opted_in", site=site_id, event_id=event.event_id, committed_kw=committed_kw)
         return response
 
     def opt_out(self, event: DREvent, site_id: str, reason: str = "") -> SiteResponse:
@@ -164,7 +166,7 @@ class DemandResponseDispatcher:
 
     def settle_event(
         self,
-        event:   DREvent,
+        event: DREvent,
         site_id: str,
         actual_df: pd.DataFrame | None = None,
     ) -> SiteResponse:
@@ -175,7 +177,7 @@ class DemandResponseDispatcher:
         3. Calculate revenue and any penalties
         4. Update response record
         """
-        key      = f"{event.event_id}:{site_id}"
+        key = f"{event.event_id}:{site_id}"
         response = self._responses.get(key)
         if not response:
             raise ValueError(f"No response record for event={event.event_id} site={site_id}")
@@ -200,6 +202,7 @@ class DemandResponseDispatcher:
             penalty = shortfall_kw * duration_h * event.penalty_per_kwh
 
         from dataclasses import replace
+
         settled = replace(
             response,
             status=SiteResponseStatus.COMPLETED,
@@ -213,9 +216,11 @@ class DemandResponseDispatcher:
         self._responses[key] = settled
         log.info(
             "dr.settled",
-            site=site_id, event_id=event.event_id,
+            site=site_id,
+            event_id=event.event_id,
             reduction_kw=actual_reduction,
-            revenue=revenue, penalty=penalty,
+            revenue=revenue,
+            penalty=penalty,
         )
         return settled
 
@@ -224,21 +229,19 @@ class DemandResponseDispatcher:
     def portfolio_revenue(self) -> dict[str, Any]:
         """Aggregate DR revenue and performance across all settled responses."""
         completed = [
-            r for r in self._responses.values()
-            if r.status == SiteResponseStatus.COMPLETED
+            r for r in self._responses.values() if r.status == SiteResponseStatus.COMPLETED
         ]
         total_revenue = sum(r.revenue_earned for r in completed)
         total_penalty = sum(r.penalty_charged for r in completed)
         avg_reduction = (
-            sum(r.reduction_pct for r in completed) / len(completed)
-            if completed else 0.0
+            sum(r.reduction_pct for r in completed) / len(completed) if completed else 0.0
         )
         return {
-            "events_responded":    len(completed),
-            "total_revenue":       round(total_revenue, 2),
-            "total_penalty":       round(total_penalty, 2),
-            "net_revenue":         round(total_revenue - total_penalty, 2),
-            "avg_reduction_pct":   round(avg_reduction, 1),
+            "events_responded": len(completed),
+            "total_revenue": round(total_revenue, 2),
+            "total_penalty": round(total_penalty, 2),
+            "net_revenue": round(total_revenue - total_penalty, 2),
+            "avg_reduction_pct": round(avg_reduction, 1),
             "by_site": {
                 site: round(sum(r.revenue_earned for r in completed if r.site_id == site), 2)
                 for site in {r.site_id for r in completed}
@@ -250,7 +253,7 @@ class DemandResponseDispatcher:
     def _plan_shed(self, target_kw: float, site_id: str) -> list[ShedAction]:
         """Build an ordered list of shed actions to reach target_kw."""
         remaining = target_kw
-        actions:  list[ShedAction] = []
+        actions: list[ShedAction] = []
         import uuid as _uuid
 
         for asset in SHEDDABLE_ASSETS:
@@ -258,17 +261,19 @@ class DemandResponseDispatcher:
                 break
             # Use site-specific capacity if available, else typical
             capacity = self._assets.get(f"{site_id}:{asset['type']}", asset["typical_kw"])
-            shed_kw  = min(capacity, remaining)
+            shed_kw = min(capacity, remaining)
             if shed_kw < 0.5:
                 continue
-            actions.append(ShedAction(
-                action_id=str(_uuid.uuid4())[:8],
-                asset_type=asset["type"],
-                site_id=site_id,
-                command=asset["command"],
-                target_kw=round(shed_kw, 1),
-                priority=asset["priority"],
-            ))
+            actions.append(
+                ShedAction(
+                    action_id=str(_uuid.uuid4())[:8],
+                    asset_type=asset["type"],
+                    site_id=site_id,
+                    command=asset["command"],
+                    target_kw=round(shed_kw, 1),
+                    priority=asset["priority"],
+                )
+            )
             remaining -= shed_kw
 
         return actions
@@ -288,19 +293,25 @@ class DemandResponseDispatcher:
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
         # Event window
-        start = event.start_time if event.start_time.tzinfo else event.start_time.replace(tzinfo=timezone.utc)
-        end   = event.end_time   if event.end_time.tzinfo   else event.end_time.replace(tzinfo=timezone.utc)
+        start = (
+            event.start_time
+            if event.start_time.tzinfo
+            else event.start_time.replace(tzinfo=timezone.utc)
+        )
+        end = (
+            event.end_time if event.end_time.tzinfo else event.end_time.replace(tzinfo=timezone.utc)
+        )
 
         event_df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)]
         response_kw = float(event_df["kwh"].mean()) if not event_df.empty else 0.0
 
         # Baseline: average of same hours on prior weekdays
-        event_dow   = start.weekday()
+        event_dow = start.weekday()
         event_hours = set(range(start.hour, end.hour + 1))
         prior = df[
-            (df["timestamp"] < start) &
-            (df["timestamp"].dt.weekday == event_dow) &
-            (df["timestamp"].dt.hour.isin(event_hours))
+            (df["timestamp"] < start)
+            & (df["timestamp"].dt.weekday == event_dow)
+            & (df["timestamp"].dt.hour.isin(event_hours))
         ]
         baseline_kw = float(prior["kwh"].mean()) if not prior.empty else response_kw
 

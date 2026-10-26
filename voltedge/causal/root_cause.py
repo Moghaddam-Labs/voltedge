@@ -23,15 +23,13 @@ Output (natural language + structured):
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
-from voltedge.causal.graph import CausalEdge, CausalGraph
+from voltedge.causal.graph import CausalGraph
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -43,29 +41,30 @@ DEVIATION_THRESHOLD = 1.5
 @dataclass
 class CausalFactor:
     """One contributing causal factor in a root-cause explanation."""
-    variable:      str
-    causal_strength: float      # Beta coefficient from the graph
-    deviation_z:   float        # Standard deviations from normal at anomaly time
-    contribution_score: float   # strength × |deviation|
-    direction:     str          # "increase" or "decrease"
+
+    variable: str
+    causal_strength: float  # Beta coefficient from the graph
+    deviation_z: float  # Standard deviations from normal at anomaly time
+    contribution_score: float  # strength × |deviation|
+    direction: str  # "increase" or "decrease"
     value_at_anomaly: float | None = None
-    baseline_mean:    float | None = None
-    mechanism:        str      = ""
-    lag_hours:        int      = 0
-    depth:            int      = 1   # 1 = direct cause, 2 = cause of cause, etc.
+    baseline_mean: float | None = None
+    mechanism: str = ""
+    lag_hours: int = 0
+    depth: int = 1  # 1 = direct cause, 2 = cause of cause, etc.
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "variable":         self.variable,
-            "causal_strength":  round(self.causal_strength, 4),
-            "deviation_z":      round(self.deviation_z, 4),
+            "variable": self.variable,
+            "causal_strength": round(self.causal_strength, 4),
+            "deviation_z": round(self.deviation_z, 4),
             "contribution_score": round(self.contribution_score, 4),
-            "direction":        self.direction,
+            "direction": self.direction,
             "value_at_anomaly": self.value_at_anomaly,
-            "baseline_mean":    self.baseline_mean,
-            "mechanism":        self.mechanism,
-            "lag_hours":        self.lag_hours,
-            "depth":            self.depth,
+            "baseline_mean": self.baseline_mean,
+            "mechanism": self.mechanism,
+            "lag_hours": self.lag_hours,
+            "depth": self.depth,
         }
 
 
@@ -80,18 +79,19 @@ class RootCauseReport:
       - Confidence rating
       - Recommended actions
     """
-    site_id:           str
-    anomaly_timestamp: str
-    anomaly_variable:  str     = "kwh"
-    anomaly_value:     float   = 0.0
-    baseline_value:    float   = 0.0
-    deviation_pct:     float   = 0.0
-    anomaly_label:     str     = ""
 
-    causal_factors:    list[CausalFactor] = field(default_factory=list)
-    narrative:         str   = ""
-    confidence:        str   = "medium"   # "high" | "medium" | "low"
-    recommendations:   list[str] = field(default_factory=list)
+    site_id: str
+    anomaly_timestamp: str
+    anomaly_variable: str = "kwh"
+    anomaly_value: float = 0.0
+    baseline_value: float = 0.0
+    deviation_pct: float = 0.0
+    anomaly_label: str = ""
+
+    causal_factors: list[CausalFactor] = field(default_factory=list)
+    narrative: str = ""
+    confidence: str = "medium"  # "high" | "medium" | "low"
+    recommendations: list[str] = field(default_factory=list)
 
     @property
     def primary_cause(self) -> CausalFactor | None:
@@ -103,18 +103,18 @@ class RootCauseReport:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "site_id":           self.site_id,
+            "site_id": self.site_id,
             "anomaly_timestamp": self.anomaly_timestamp,
-            "anomaly_variable":  self.anomaly_variable,
-            "anomaly_value":     round(self.anomaly_value, 3),
-            "baseline_value":    round(self.baseline_value, 3),
-            "deviation_pct":     round(self.deviation_pct, 1),
-            "anomaly_label":     self.anomaly_label,
-            "causal_factors":    [f.to_dict() for f in self.causal_factors],
-            "narrative":         self.narrative,
-            "confidence":        self.confidence,
-            "recommendations":   self.recommendations,
-            "primary_cause":     self.primary_cause.to_dict() if self.primary_cause else None,
+            "anomaly_variable": self.anomaly_variable,
+            "anomaly_value": round(self.anomaly_value, 3),
+            "baseline_value": round(self.baseline_value, 3),
+            "deviation_pct": round(self.deviation_pct, 1),
+            "anomaly_label": self.anomaly_label,
+            "causal_factors": [f.to_dict() for f in self.causal_factors],
+            "narrative": self.narrative,
+            "confidence": self.confidence,
+            "recommendations": self.recommendations,
+            "primary_cause": self.primary_cause.to_dict() if self.primary_cause else None,
         }
 
 
@@ -130,11 +130,11 @@ class RootCauseAnalyser:
 
     def __init__(
         self,
-        graph:            CausalGraph,
-        max_depth:        int   = 3,
+        graph: CausalGraph,
+        max_depth: int = 3,
         min_contribution: float = 0.05,
     ) -> None:
-        self._graph    = graph
+        self._graph = graph
         self._max_depth = max_depth
         self._min_contr = min_contribution
 
@@ -142,11 +142,11 @@ class RootCauseAnalyser:
 
     def analyse(
         self,
-        df:                pd.DataFrame,
+        df: pd.DataFrame,
         anomaly_timestamp: str | datetime,
-        anomaly_variable:  str = "kwh",
-        anomaly_label:     str = "",
-        window_hours:      int = 168,
+        anomaly_variable: str = "kwh",
+        anomaly_label: str = "",
+        window_hours: int = 168,
     ) -> RootCauseReport:
         """
         Analyse the root cause of an anomaly.
@@ -162,7 +162,7 @@ class RootCauseAnalyser:
             RootCauseReport with ranked causal factors and narrative.
         """
         ts = pd.to_datetime(anomaly_timestamp, utc=True)
-        df  = df.copy()
+        df = df.copy()
 
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
@@ -181,26 +181,24 @@ class RootCauseAnalyser:
         anom_row = df.iloc[anom_idx]
 
         # Compute baseline statistics (prior window_hours)
-        baseline_df = df.iloc[max(0, anom_idx - window_hours): anom_idx]
-        baselines   = baseline_df.mean(numeric_only=True)
-        std_devs    = baseline_df.std(numeric_only=True).replace(0, 1e-8)
+        baseline_df = df.iloc[max(0, anom_idx - window_hours) : anom_idx]
+        baselines = baseline_df.mean(numeric_only=True)
+        std_devs = baseline_df.std(numeric_only=True).replace(0, 1e-8)
 
-        anom_value    = float(anom_row.get(anomaly_variable, 0))
-        baseline_val  = float(baselines.get(anomaly_variable, anom_value))
-        deviation_pct = (
-            (anom_value - baseline_val) / (abs(baseline_val) + 1e-8) * 100
+        anom_value = float(anom_row.get(anomaly_variable, 0))
+        baseline_val = float(baselines.get(anomaly_variable, anom_value))
+        deviation_pct = (anom_value - baseline_val) / (abs(baseline_val) + 1e-8) * 100
+
+        log.info(
+            "root_cause.analyse_start",
+            site=self._graph.site_id,
+            timestamp=str(ts)[:16],
+            variable=anomaly_variable,
+            deviation_pct=round(deviation_pct, 1),
         )
-
-        log.info("root_cause.analyse_start",
-                 site=self._graph.site_id,
-                 timestamp=str(ts)[:16],
-                 variable=anomaly_variable,
-                 deviation_pct=round(deviation_pct, 1))
 
         # Walk causal graph backwards from anomaly_variable
-        factors = self._trace_causes(
-            anomaly_variable, anom_row, baselines, std_devs, depth=1
-        )
+        factors = self._trace_causes(anomaly_variable, anom_row, baselines, std_devs, depth=1)
 
         # Filter and rank
         factors = [f for f in factors if f.contribution_score >= self._min_contr]
@@ -208,8 +206,14 @@ class RootCauseAnalyser:
 
         # Generate narrative and recommendations
         narrative = self._build_narrative(
-            self._graph.site_id, ts, anomaly_variable,
-            anom_value, baseline_val, deviation_pct, factors, anomaly_label,
+            self._graph.site_id,
+            ts,
+            anomaly_variable,
+            anom_value,
+            baseline_val,
+            deviation_pct,
+            factors,
+            anomaly_label,
         )
         recommendations = self._build_recommendations(factors, anomaly_label)
         confidence = self._assess_confidence(factors, len(df))
@@ -228,20 +232,22 @@ class RootCauseAnalyser:
             recommendations=recommendations,
         )
 
-        log.info("root_cause.analyse_complete",
-                 site=self._graph.site_id,
-                 factors=len(factors),
-                 primary=factors[0].variable if factors else "none",
-                 confidence=confidence)
+        log.info(
+            "root_cause.analyse_complete",
+            site=self._graph.site_id,
+            factors=len(factors),
+            primary=factors[0].variable if factors else "none",
+            confidence=confidence,
+        )
         return report
 
     def analyse_period(
         self,
-        df:               pd.DataFrame,
-        start:            str | datetime,
-        end:              str | datetime,
+        df: pd.DataFrame,
+        start: str | datetime,
+        end: str | datetime,
         anomaly_variable: str = "kwh",
-        top_n:            int = 5,
+        top_n: int = 5,
     ) -> list[RootCauseReport]:
         """
         Analyse all anomalies in a time period. Returns reports for each.
@@ -251,17 +257,14 @@ class RootCauseAnalyser:
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
         start_ts = pd.to_datetime(start, utc=True)
-        end_ts   = pd.to_datetime(end,   utc=True)
-        window   = df[
-            (df["timestamp"] >= start_ts) &
-            (df["timestamp"] <= end_ts)
-        ]
+        end_ts = pd.to_datetime(end, utc=True)
+        window = df[(df["timestamp"] >= start_ts) & (df["timestamp"] <= end_ts)]
 
         if "anomaly_score" in df.columns:
             flagged = window[window["anomaly_score"] > 0.75]
         else:
             # Flag rows > 2 std from mean
-            mu  = df[anomaly_variable].mean()
+            mu = df[anomaly_variable].mean()
             sig = df[anomaly_variable].std() + 1e-8
             flagged = window[abs(window[anomaly_variable] - mu) / sig > 2.0]
 
@@ -269,7 +272,9 @@ class RootCauseAnalyser:
         for _, row in flagged.head(top_n).iterrows():
             try:
                 report = self.analyse(
-                    df, row["timestamp"], anomaly_variable,
+                    df,
+                    row["timestamp"],
+                    anomaly_variable,
                     anomaly_label=str(row.get("anomaly_label", "")),
                 )
                 reports.append(report)
@@ -282,11 +287,11 @@ class RootCauseAnalyser:
 
     def _trace_causes(
         self,
-        variable:  str,
-        anom_row:  pd.Series,
+        variable: str,
+        anom_row: pd.Series,
         baselines: pd.Series,
-        std_devs:  pd.Series,
-        depth:     int,
+        std_devs: pd.Series,
+        depth: int,
     ) -> list[CausalFactor]:
         """Recursively walk the causal graph, collecting factors."""
         if depth > self._max_depth:
@@ -304,49 +309,49 @@ class RootCauseAnalyser:
 
             value_at = float(anom_row[cause_var])
             baseline = float(baselines.get(cause_var, value_at))
-            std      = float(std_devs.get(cause_var, 1.0))
-            z_score  = (value_at - baseline) / std
+            std = float(std_devs.get(cause_var, 1.0))
+            z_score = (value_at - baseline) / std
 
             if abs(z_score) < 0.5 and depth > 1:
-                continue   # Prune low-deviation ancestors
+                continue  # Prune low-deviation ancestors
 
             contribution = abs(edge.strength) * abs(z_score)
 
-            factors.append(CausalFactor(
-                variable=cause_var,
-                causal_strength=edge.strength,
-                deviation_z=round(z_score, 3),
-                contribution_score=round(contribution, 4),
-                direction="increase" if z_score > 0 else "decrease",
-                value_at_anomaly=round(value_at, 3),
-                baseline_mean=round(baseline, 3),
-                mechanism=edge.mechanism,
-                lag_hours=edge.lag_hours,
-                depth=depth,
-            ))
+            factors.append(
+                CausalFactor(
+                    variable=cause_var,
+                    causal_strength=edge.strength,
+                    deviation_z=round(z_score, 3),
+                    contribution_score=round(contribution, 4),
+                    direction="increase" if z_score > 0 else "decrease",
+                    value_at_anomaly=round(value_at, 3),
+                    baseline_mean=round(baseline, 3),
+                    mechanism=edge.mechanism,
+                    lag_hours=edge.lag_hours,
+                    depth=depth,
+                )
+            )
 
             # Recurse
             if abs(z_score) >= DEVIATION_THRESHOLD:
-                deeper = self._trace_causes(
-                    cause_var, anom_row, baselines, std_devs, depth + 1
-                )
+                deeper = self._trace_causes(cause_var, anom_row, baselines, std_devs, depth + 1)
                 factors.extend(deeper)
 
         return factors
 
     @staticmethod
     def _build_narrative(
-        site_id:       str,
-        timestamp:     "pd.Timestamp",
-        variable:      str,
-        anom_value:    float,
-        baseline:      float,
+        site_id: str,
+        timestamp: pd.Timestamp,
+        variable: str,
+        anom_value: float,
+        baseline: float,
         deviation_pct: float,
-        factors:       list[CausalFactor],
-        label:         str,
+        factors: list[CausalFactor],
+        label: str,
     ) -> str:
         direction = "above" if deviation_pct > 0 else "below"
-        ts_str    = timestamp.strftime("%H:%M on %d %b %Y")
+        ts_str = timestamp.strftime("%H:%M on %d %b %Y")
 
         lines = [
             f"{site_id}: {variable} was {abs(deviation_pct):.1f}% {direction} "
@@ -363,8 +368,7 @@ class RootCauseAnalyser:
 
             if label and "drop" in label:
                 context = (
-                    "consistent with planned downtime, a weekend schedule, "
-                    "or a maintenance window"
+                    "consistent with planned downtime, a weekend schedule, or a maintenance window"
                 )
                 action = "Check the shift plan and confirm equipment was intentionally offline."
             elif label and "spike" in label:
@@ -411,7 +415,7 @@ class RootCauseAnalyser:
     @staticmethod
     def _build_recommendations(
         factors: list[CausalFactor],
-        label:   str,
+        label: str,
     ) -> list[str]:
         recs: list[str] = []
 

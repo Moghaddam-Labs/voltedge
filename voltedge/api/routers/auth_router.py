@@ -1,9 +1,12 @@
 """Auth router — /auth endpoints."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+
 from voltedge.api.auth import TokenResponse, authenticate_user, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
 
 @router.post("/token", response_model=TokenResponse)
 def login(form: OAuth2PasswordRequestForm = Depends()):

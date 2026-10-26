@@ -41,12 +41,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")   # silence TF boot noise
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")  # silence TF boot noise
 
-import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow import keras
 from tensorflow.keras import callbacks as keras_callbacks
-from sklearn.preprocessing import MinMaxScaler
 
 from voltedge.utils.logger import get_logger
 
@@ -55,9 +54,12 @@ log = get_logger(__name__)
 # Features used for sequence input (must be present after EnergyTransformer)
 SEQUENCE_FEATURES: list[str] = [
     "kwh",
-    "hour_sin", "hour_cos",
-    "dow_sin",  "dow_cos",
-    "is_weekend", "is_business_hour",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "is_weekend",
+    "is_business_hour",
     "kwh_roll_mean_24h",
     "kwh_roll_std_24h",
 ]
@@ -76,30 +78,30 @@ class LSTMForecaster:
         batch_size:    Training batch size.
     """
 
-    model_name    = "lstm_forecaster"
+    model_name = "lstm_forecaster"
     model_version = "1.0.0"
 
     def __init__(
         self,
         site_id: str,
-        lookback:     int  = 48,
-        horizon:      int  = 24,
+        lookback: int = 48,
+        horizon: int = 24,
         artifact_dir: str | Path = "data/models",
-        epochs:       int  = 100,
-        batch_size:   int  = 32,
+        epochs: int = 100,
+        batch_size: int = 32,
     ) -> None:
-        self.site_id      = site_id
-        self.lookback     = lookback
-        self.horizon      = horizon
-        self.epochs       = epochs
-        self.batch_size   = batch_size
+        self.site_id = site_id
+        self.lookback = lookback
+        self.horizon = horizon
+        self.epochs = epochs
+        self.batch_size = batch_size
 
         self._artifact_dir = Path(artifact_dir) / self.model_name / site_id
         self._artifact_dir.mkdir(parents=True, exist_ok=True)
 
-        self._model:   keras.Model   | None = None
-        self._scaler:  MinMaxScaler  | None = None
-        self._features: list[str]           = []
+        self._model: keras.Model | None = None
+        self._scaler: MinMaxScaler | None = None
+        self._features: list[str] = []
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -115,13 +117,16 @@ class LSTMForecaster:
         if not self._features:
             raise ValueError("No sequence features found. Run EnergyTransformer first.")
         if len(df) < self.lookback + self.horizon + 10:
-            raise ValueError(
-                f"Need ≥{self.lookback + self.horizon + 10} rows, got {len(df)}."
-            )
+            raise ValueError(f"Need ≥{self.lookback + self.horizon + 10} rows, got {len(df)}.")
 
-        log.info("lstm.train_start", site=self.site_id,
-                 rows=len(df), lookback=self.lookback, horizon=self.horizon,
-                 features=len(self._features))
+        log.info(
+            "lstm.train_start",
+            site=self.site_id,
+            rows=len(df),
+            lookback=self.lookback,
+            horizon=self.horizon,
+            features=len(self._features),
+        )
 
         # Scale features to [0, 1]
         self._scaler = MinMaxScaler(feature_range=(0, 1))
@@ -138,30 +143,34 @@ class LSTMForecaster:
         log.info("lstm.dataset", train=len(X_train), val=len(X_val))
 
         # Build model
-        self._model = self._build_model(
-            n_features=len(self._features), horizon=self.horizon
-        )
+        self._model = self._build_model(n_features=len(self._features), horizon=self.horizon)
 
         # Callbacks
         cb = [
             keras_callbacks.EarlyStopping(
-                monitor="val_loss", patience=10,
-                restore_best_weights=True, verbose=0,
+                monitor="val_loss",
+                patience=10,
+                restore_best_weights=True,
+                verbose=0,
             ),
             keras_callbacks.ReduceLROnPlateau(
-                monitor="val_loss", factor=0.5, patience=5,
-                min_lr=1e-5, verbose=0,
+                monitor="val_loss",
+                factor=0.5,
+                patience=5,
+                min_lr=1e-5,
+                verbose=0,
             ),
         ]
 
         history = self._model.fit(
-            X_train, y_train,
+            X_train,
+            y_train,
             validation_data=(X_val, y_val),
             epochs=self.epochs,
             batch_size=self.batch_size,
             callbacks=cb,
             verbose=0,
-            shuffle=False,   # Preserve temporal order within batches
+            shuffle=False,  # Preserve temporal order within batches
         )
 
         epochs_trained = len(history.history["loss"])
@@ -172,22 +181,20 @@ class LSTMForecaster:
         y_true_kwh = self._inverse_kwh(y_val)
         y_pred_kwh = self._inverse_kwh(y_hat_val)
 
-        mae  = float(np.mean(np.abs(y_true_kwh - y_pred_kwh)))
+        mae = float(np.mean(np.abs(y_true_kwh - y_pred_kwh)))
         rmse = float(np.sqrt(np.mean((y_true_kwh - y_pred_kwh) ** 2)))
-        mape = float(np.mean(np.abs(
-            (y_true_kwh - y_pred_kwh) / (np.abs(y_true_kwh) + 1e-8)
-        )) * 100)
+        mape = float(np.mean(np.abs((y_true_kwh - y_pred_kwh) / (np.abs(y_true_kwh) + 1e-8))) * 100)
 
         metrics = {
-            "mae":           round(mae, 4),
-            "rmse":          round(rmse, 4),
-            "mape":          round(mape, 4),
-            "val_loss":      round(float(history.history["val_loss"][-1]), 6),
-            "val_mae":       round(float(history.history.get("val_mae", [0])[-1]), 4),
+            "mae": round(mae, 4),
+            "rmse": round(rmse, 4),
+            "mape": round(mape, 4),
+            "val_loss": round(float(history.history["val_loss"][-1]), 6),
+            "val_mae": round(float(history.history.get("val_mae", [0])[-1]), 4),
             "epochs_trained": int(epochs_trained),
             "training_rows": int(len(df)),
-            "lookback":      self.lookback,
-            "horizon":       self.horizon,
+            "lookback": self.lookback,
+            "horizon": self.horizon,
         }
         log.info("lstm.train_complete", site=self.site_id, **metrics)
         return metrics
@@ -205,41 +212,43 @@ class LSTMForecaster:
         available = [f for f in self._features if f in df.columns]
 
         if len(df) < self.lookback:
-            raise ValueError(
-                f"Need ≥{self.lookback} rows for prediction, got {len(df)}."
-            )
+            raise ValueError(f"Need ≥{self.lookback} rows for prediction, got {len(df)}.")
 
         # Take last `lookback` rows
         window = df[available].tail(self.lookback).values
         window_scaled = self._scaler.transform(window)
-        X = window_scaled[np.newaxis, :, :]   # (1, lookback, n_features)
+        X = window_scaled[np.newaxis, :, :]  # (1, lookback, n_features)
 
         # Monte Carlo dropout for uncertainty — run N forward passes
         predictions = []
         for _ in range(30):
-            pred = self._model(X, training=True).numpy()   # training=True keeps dropout active
+            pred = self._model(X, training=True).numpy()  # training=True keeps dropout active
             predictions.append(np.atleast_1d(self._inverse_kwh(pred)))
 
-        preds = np.array(predictions)   # (30, horizon)
+        preds = np.array(predictions)  # (30, horizon)
         mean_forecast = preds.mean(axis=0)
-        std_forecast  = preds.std(axis=0)
+        std_forecast = preds.std(axis=0)
 
         last_ts = pd.to_datetime(df["timestamp"].iloc[-1], utc=True)
 
-        return pd.DataFrame([
-            {
-                "timestamp":    last_ts + pd.Timedelta(hours=int(h + 1)),
-                "kwh_forecast": max(0.0, round(float(mean_forecast[h]), 3)),
-                "lower_bound":  max(0.0, round(float(mean_forecast[h] - 1.96 * std_forecast[h]), 3)),
-                "upper_bound":  max(0.0, round(float(mean_forecast[h] + 1.96 * std_forecast[h]), 3)),
-                "horizon_h":    int(h + 1),
-            }
-            for h in range(self.horizon)
-        ])
+        return pd.DataFrame(
+            [
+                {
+                    "timestamp": last_ts + pd.Timedelta(hours=int(h + 1)),
+                    "kwh_forecast": max(0.0, round(float(mean_forecast[h]), 3)),
+                    "lower_bound": max(
+                        0.0, round(float(mean_forecast[h] - 1.96 * std_forecast[h]), 3)
+                    ),
+                    "upper_bound": max(
+                        0.0, round(float(mean_forecast[h] + 1.96 * std_forecast[h]), 3)
+                    ),
+                    "horizon_h": int(h + 1),
+                }
+                for h in range(self.horizon)
+            ]
+        )
 
-    def compare_with_gbm(
-        self, df: pd.DataFrame, gbm_forecast: pd.DataFrame
-    ) -> dict[str, Any]:
+    def compare_with_gbm(self, df: pd.DataFrame, gbm_forecast: pd.DataFrame) -> dict[str, Any]:
         """
         Compare LSTM forecast against a GBM forecast on the same horizon.
         Returns a dict with side-by-side metrics and ensemble average.
@@ -248,20 +257,20 @@ class LSTMForecaster:
 
         shared_h = min(len(lstm_forecast), len(gbm_forecast))
         lstm_kwh = lstm_forecast["kwh_forecast"].values[:shared_h]
-        gbm_kwh  = gbm_forecast["kwh_forecast"].values[:shared_h]
+        gbm_kwh = gbm_forecast["kwh_forecast"].values[:shared_h]
         ensemble = (lstm_kwh + gbm_kwh) / 2
 
         return {
             "horizon_hours": shared_h,
             "lstm_mean_forecast": round(float(lstm_kwh.mean()), 3),
-            "gbm_mean_forecast":  round(float(gbm_kwh.mean()),  3),
-            "ensemble_mean":      round(float(ensemble.mean()), 3),
-            "lstm_ci_width_mean": round(float(
-                (lstm_forecast["upper_bound"] - lstm_forecast["lower_bound"]).mean()
-            ), 3),
-            "gbm_ci_width_mean": round(float(
-                (gbm_forecast["upper_bound"] - gbm_forecast["lower_bound"]).mean()
-            ), 3),
+            "gbm_mean_forecast": round(float(gbm_kwh.mean()), 3),
+            "ensemble_mean": round(float(ensemble.mean()), 3),
+            "lstm_ci_width_mean": round(
+                float((lstm_forecast["upper_bound"] - lstm_forecast["lower_bound"]).mean()), 3
+            ),
+            "gbm_ci_width_mean": round(
+                float((gbm_forecast["upper_bound"] - gbm_forecast["lower_bound"]).mean()), 3
+            ),
             "ensemble_forecast": ensemble.tolist(),
         }
 
@@ -274,19 +283,19 @@ class LSTMForecaster:
         keras_path = self._artifact_dir / "model.keras"
         self._model.save(str(keras_path))
 
-        import pickle
         with open(self._artifact_dir / "scaler.pkl", "wb") as f:
             import pickle as pkl
+
             pkl.dump(self._scaler, f, protocol=pkl.HIGHEST_PROTOCOL)
 
         meta: dict[str, Any] = {
-            "model_name":    self.model_name,
+            "model_name": self.model_name,
             "model_version": self.model_version,
-            "site_id":       self.site_id,
-            "lookback":      self.lookback,
-            "horizon":       self.horizon,
-            "features":      self._features,
-            "metrics":       metrics or {},
+            "site_id": self.site_id,
+            "lookback": self.lookback,
+            "horizon": self.horizon,
+            "features": self._features,
+            "metrics": metrics or {},
         }
         (self._artifact_dir / "metadata.json").write_text(json.dumps(meta, indent=2))
         log.info("lstm.saved", site=self.site_id, path=str(self._artifact_dir))
@@ -296,13 +305,15 @@ class LSTMForecaster:
         self._model = keras.models.load_model(str(keras_path))
 
         import pickle
+
         with open(self._artifact_dir / "scaler.pkl", "rb") as f:
-            self._scaler = pickle.load(f)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._scaler = pickle.load(f)  # nosec B301
 
         meta = json.loads((self._artifact_dir / "metadata.json").read_text())
-        self.lookback   = meta["lookback"]
-        self.horizon    = meta["horizon"]
-        self._features  = meta["features"]
+        self.lookback = meta["lookback"]
+        self.horizon = meta["horizon"]
+        self._features = meta["features"]
         log.info("lstm.loaded", site=self.site_id)
 
     # ── Internal ──────────────────────────────────────────────────────────────
@@ -310,28 +321,27 @@ class LSTMForecaster:
     @staticmethod
     def _build_model(n_features: int, horizon: int) -> keras.Model:
         """Bidirectional LSTM with MC Dropout for uncertainty quantification."""
-        model = keras.Sequential([
-            keras.layers.Input(shape=(None, n_features)),
-            keras.layers.Bidirectional(
-                keras.layers.LSTM(64, return_sequences=True)
-            ),
-            keras.layers.Dropout(0.2),
-            keras.layers.LSTM(32, return_sequences=False),
-            keras.layers.Dropout(0.2),
-            keras.layers.Dense(16, activation="relu"),
-            keras.layers.Dense(horizon),
-        ], name="voltedge_lstm")
+        model = keras.Sequential(
+            [
+                keras.layers.Input(shape=(None, n_features)),
+                keras.layers.Bidirectional(keras.layers.LSTM(64, return_sequences=True)),
+                keras.layers.Dropout(0.2),
+                keras.layers.LSTM(32, return_sequences=False),
+                keras.layers.Dropout(0.2),
+                keras.layers.Dense(16, activation="relu"),
+                keras.layers.Dense(horizon),
+            ],
+            name="voltedge_lstm",
+        )
 
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-            loss="huber",   # Robust to outliers vs MSE
+            loss="huber",  # Robust to outliers vs MSE
             metrics=["mae"],
         )
         return model
 
-    def _make_windows(
-        self, scaled: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _make_windows(self, scaled: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Construct (X, y) sliding window arrays from scaled data."""
         X, y = [], []
         kwh_idx = self._features.index("kwh") if "kwh" in self._features else 0
@@ -349,13 +359,13 @@ class LSTMForecaster:
         Inverse-transform kwh-only predictions back to original scale.
         Pads zeros for other features so MinMaxScaler can invert correctly.
         """
-        kwh_idx   = self._features.index("kwh") if "kwh" in self._features else 0
-        n_feat    = len(self._features)
+        kwh_idx = self._features.index("kwh") if "kwh" in self._features else 0
+        n_feat = len(self._features)
         n_samples = scaled_kwh.shape[0]
 
         # Handle 1D or 2D input
         flat = scaled_kwh.reshape(n_samples, -1)
-        out  = np.zeros((n_samples * flat.shape[1], n_feat), dtype=np.float32)
+        out = np.zeros((n_samples * flat.shape[1], n_feat), dtype=np.float32)
         out[:, kwh_idx] = flat.reshape(-1)
 
         inv = self._scaler.inverse_transform(out)

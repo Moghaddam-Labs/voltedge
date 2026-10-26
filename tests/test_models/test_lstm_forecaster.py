@@ -2,28 +2,33 @@
 Tests for LSTMForecaster.
 Uses a short lookback (24h) and few epochs to keep test runtime under 60s.
 """
+
 from __future__ import annotations
 
 import asyncio
-import pytest
+
 import numpy as np
+import pytest
 
 from voltedge.ingestion.simulators import SimulatedSiteConnector
+
 try:
     import tensorflow  # noqa: F401
 except ImportError:
     import pytest
+
     pytest.skip(
-        'TensorFlow not installed — skipping LSTM tests. '
-        'Install tensorflow-macos (Apple Silicon) or tensorflow to run.',
+        "TensorFlow not installed — skipping LSTM tests. "
+        "Install tensorflow-macos (Apple Silicon) or tensorflow to run.",
         allow_module_level=True,
     )
 
 from voltedge.models.lstm_forecaster import LSTMForecaster
+
 from voltedge.processing.transformer import EnergyTransformer
 
 SITE = "LSTM-TEST"
-LOOKBACK = 24   # Short window for fast tests
+LOOKBACK = 24  # Short window for fast tests
 
 
 def _get_df(hours: int = 300, seed: int = 42) -> object:
@@ -37,13 +42,14 @@ def _make_model(**kwargs) -> LSTMForecaster:
         site_id=SITE,
         horizon_hours=6,
         lookback_hours=LOOKBACK,
-        epochs=5,          # Minimal epochs for speed
+        epochs=5,  # Minimal epochs for speed
         batch_size=32,
         **kwargs,
     )
 
 
 # ── Training ──────────────────────────────────────────────────────────────────
+
 
 def test_lstm_train_returns_metrics():
     df = _get_df()
@@ -58,8 +64,13 @@ def test_lstm_train_returns_metrics():
 def test_lstm_train_insufficient_data_raises():
     model = _make_model()
     import pandas as pd
-    tiny = pd.DataFrame({"timestamp": pd.date_range("2026-01-01", periods=10, freq="h", tz="UTC"),
-                         "kwh": [1.0] * 10})
+
+    tiny = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-01-01", periods=10, freq="h", tz="UTC"),
+            "kwh": [1.0] * 10,
+        }
+    )
     with pytest.raises(ValueError, match="Need"):
         model.train(tiny)
 
@@ -81,6 +92,7 @@ def test_lstm_train_samples_positive():
 
 # ── Prediction ────────────────────────────────────────────────────────────────
 
+
 def test_lstm_predict_correct_horizon():
     df = _get_df()
     model = _make_model()
@@ -94,8 +106,14 @@ def test_lstm_predict_columns_present():
     model = _make_model()
     model.train(df)
     forecast = model.predict(df)
-    for col in ("timestamp", "kwh_forecast", "lower_bound", "upper_bound",
-                "horizon_h", "uncertainty"):
+    for col in (
+        "timestamp",
+        "kwh_forecast",
+        "lower_bound",
+        "upper_bound",
+        "horizon_h",
+        "uncertainty",
+    ):
         assert col in forecast.columns, f"Missing: {col}"
 
 
@@ -145,15 +163,19 @@ def test_lstm_predict_insufficient_context_raises():
     model = _make_model()
     model.train(df)
     import pandas as pd
-    short = pd.DataFrame({
-        "timestamp": pd.date_range("2026-01-01", periods=5, freq="h", tz="UTC"),
-        "kwh": [10.0] * 5,
-    })
+
+    short = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2026-01-01", periods=5, freq="h", tz="UTC"),
+            "kwh": [10.0] * 5,
+        }
+    )
     with pytest.raises(ValueError, match="Need"):
         model.predict(short)
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────
+
 
 def test_lstm_save_load_roundtrip(tmp_path):
     df = _get_df()
@@ -177,6 +199,7 @@ def test_lstm_save_without_train_raises(tmp_path):
 
 def test_lstm_metadata_written(tmp_path):
     import json
+
     df = _get_df()
     model = _make_model(artifact_dir=str(tmp_path))
     metrics = model.train(df)
@@ -188,6 +211,7 @@ def test_lstm_metadata_written(tmp_path):
 
 
 # ── Model properties ──────────────────────────────────────────────────────────
+
 
 def test_lstm_model_name():
     assert LSTMForecaster.model_name == "lstm_forecaster"

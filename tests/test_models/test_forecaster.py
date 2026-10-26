@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
+
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.models.forecasting import DemandForecaster
 from voltedge.processing.transformer import EnergyTransformer
@@ -56,13 +56,11 @@ def test_forecaster_bounds_ordering():
 
 def test_forecaster_save_load(tmp_path):
     df = _get_processed_df()
-    model = DemandForecaster(site_id="SAVE-SITE", horizon_hours=6,
-                              artifact_dir=str(tmp_path))
+    model = DemandForecaster(site_id="SAVE-SITE", horizon_hours=6, artifact_dir=str(tmp_path))
     metrics = model.train(df)
     model.save(metrics)
 
-    loaded = DemandForecaster(site_id="SAVE-SITE", horizon_hours=6,
-                               artifact_dir=str(tmp_path))
+    loaded = DemandForecaster(site_id="SAVE-SITE", horizon_hours=6, artifact_dir=str(tmp_path))
     loaded.load()
     forecast = loaded.predict(df.tail(50))
     assert len(forecast) == 6

@@ -47,26 +47,27 @@ log = get_logger(__name__)
 
 # ── Types ──────────────────────────────────────────────────────────────────────
 
+
 class AlertSeverity(str, Enum):
-    LOW      = "low"
-    MEDIUM   = "medium"
-    HIGH     = "high"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
     CRITICAL = "critical"
 
 
 # Severity → Slack colour sidebar
 _SLACK_COLORS = {
-    AlertSeverity.LOW:      "#7fff6b",
-    AlertSeverity.MEDIUM:   "#ffcc00",
-    AlertSeverity.HIGH:     "#ff6b35",
+    AlertSeverity.LOW: "#7fff6b",
+    AlertSeverity.MEDIUM: "#ffcc00",
+    AlertSeverity.HIGH: "#ff6b35",
     AlertSeverity.CRITICAL: "#ff0000",
 }
 
 # Severity → PagerDuty event severity
 _PD_SEVERITY = {
-    AlertSeverity.LOW:      "info",
-    AlertSeverity.MEDIUM:   "warning",
-    AlertSeverity.HIGH:     "error",
+    AlertSeverity.LOW: "info",
+    AlertSeverity.MEDIUM: "warning",
+    AlertSeverity.HIGH: "error",
     AlertSeverity.CRITICAL: "critical",
 }
 
@@ -85,28 +86,29 @@ class Alert:
         details:    Arbitrary key-value dict (attached as fields in Slack, context in PD).
         dedup_key:  Optional deduplication key (used by PagerDuty to correlate alerts).
     """
-    title:     str
-    message:   str
-    severity:  AlertSeverity = AlertSeverity.MEDIUM
-    site_id:   str           = ""
-    source:    str           = "voltedge"
-    details:   dict[str, Any] = field(default_factory=dict)
-    dedup_key: str | None    = None
-    timestamp: datetime      = field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+
+    title: str
+    message: str
+    severity: AlertSeverity = AlertSeverity.MEDIUM
+    site_id: str = ""
+    source: str = "voltedge"
+    details: dict[str, Any] = field(default_factory=dict)
+    dedup_key: str | None = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
 class DispatchResult:
     """Result of a single webhook dispatch attempt."""
-    channel:     str
-    success:     bool
+
+    channel: str
+    success: bool
     status_code: int | None = None
-    error:       str | None = None
+    error: str | None = None
 
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
+
 
 class AlertDispatcher:
     """
@@ -124,17 +126,17 @@ class AlertDispatcher:
 
     def __init__(
         self,
-        slack_webhook_url:     str | None = None,
+        slack_webhook_url: str | None = None,
         pagerduty_routing_key: str | None = None,
-        generic_webhook_url:   str | None = None,
-        timeout_seconds:       float = 10.0,
-        dry_run:               bool = False,
+        generic_webhook_url: str | None = None,
+        timeout_seconds: float = 10.0,
+        dry_run: bool = False,
     ) -> None:
-        self.slack_url      = slack_webhook_url
+        self.slack_url = slack_webhook_url
         self.pd_routing_key = pagerduty_routing_key
-        self.generic_url    = generic_webhook_url
-        self.timeout        = timeout_seconds
-        self.dry_run        = dry_run
+        self.generic_url = generic_webhook_url
+        self.timeout = timeout_seconds
+        self.dry_run = dry_run
 
     # ── Public ────────────────────────────────────────────────────────────────
 
@@ -161,9 +163,10 @@ class AlertDispatcher:
     async def send_many(self, alerts: list[Alert]) -> dict[str, list[DispatchResult]]:
         """Send multiple alerts. Returns {alert.title: [results]}."""
         import asyncio
+
         tasks = [self.send(a) for a in alerts]
         all_results = await asyncio.gather(*tasks)
-        return {a.title: r for a, r in zip(alerts, all_results)}
+        return {a.title: r for a, r in zip(alerts, all_results, strict=False)}
 
     def resolve(self, dedup_key: str, message: str = "Alert resolved") -> None:
         """
@@ -171,13 +174,11 @@ class AlertDispatcher:
         """
         if not self.pd_routing_key:
             return
-        import asyncio
         payload = {
-            "routing_key":  self.pd_routing_key,
+            "routing_key": self.pd_routing_key,
             "event_action": "resolve",
-            "dedup_key":    dedup_key,
-            "payload": {"summary": message, "severity": "info",
-                        "source": "voltedge"},
+            "dedup_key": dedup_key,
+            "payload": {"summary": message, "severity": "info", "source": "voltedge"},
         }
         if not self.dry_run:
             try:
@@ -199,22 +200,21 @@ class AlertDispatcher:
 
     async def _send_generic(self, alert: Alert) -> DispatchResult:
         payload = {
-            "title":     alert.title,
-            "message":   alert.message,
-            "severity":  alert.severity.value,
-            "site_id":   alert.site_id,
-            "source":    alert.source,
-            "details":   alert.details,
+            "title": alert.title,
+            "message": alert.message,
+            "severity": alert.severity.value,
+            "site_id": alert.site_id,
+            "source": alert.source,
+            "details": alert.details,
             "timestamp": alert.timestamp.isoformat(),
         }
         return await self._http_post("generic", self.generic_url, payload)
 
-    async def _http_post(
-        self, channel: str, url: str, payload: dict
-    ) -> DispatchResult:
+    async def _http_post(self, channel: str, url: str, payload: dict) -> DispatchResult:
         log.info(
             "alerts.dispatch",
-            channel=channel, title=payload.get("title", ""),
+            channel=channel,
+            title=payload.get("title", ""),
             dry_run=self.dry_run,
         )
         if self.dry_run:
@@ -226,8 +226,12 @@ class AlertDispatcher:
                 r = await client.post(url, json=payload)
                 success = r.status_code < 300
                 if not success:
-                    log.warning("alerts.dispatch_failed",
-                                channel=channel, status=r.status_code, body=r.text[:200])
+                    log.warning(
+                        "alerts.dispatch_failed",
+                        channel=channel,
+                        status=r.status_code,
+                        body=r.text[:200],
+                    )
                 else:
                     log.info("alerts.dispatch_ok", channel=channel, status=r.status_code)
                 return DispatchResult(channel=channel, success=success, status_code=r.status_code)
@@ -240,32 +244,38 @@ class AlertDispatcher:
     def _build_slack_payload(self, alert: Alert) -> dict:
         fields = [
             {"title": "Site", "value": alert.site_id or "—", "short": True},
-            {"title": "Source", "value": alert.source,      "short": True},
+            {"title": "Source", "value": alert.source, "short": True},
             {"title": "Severity", "value": alert.severity.value.upper(), "short": True},
-            {"title": "Time", "value": alert.timestamp.strftime("%Y-%m-%d %H:%M UTC"), "short": True},
+            {
+                "title": "Time",
+                "value": alert.timestamp.strftime("%Y-%m-%d %H:%M UTC"),
+                "short": True,
+            },
         ]
         for k, v in (alert.details or {}).items():
             fields.append({"title": k.replace("_", " ").title(), "value": str(v), "short": True})
 
         return {
-            "attachments": [{
-                "color":    _SLACK_COLORS.get(alert.severity, "#888"),
-                "title":    f"⚡ VoltEdge | {alert.title}",
-                "text":     alert.message,
-                "fields":   fields,
-                "footer":   "VoltEdge Energy Intelligence",
-                "ts":       int(alert.timestamp.timestamp()),
-            }]
+            "attachments": [
+                {
+                    "color": _SLACK_COLORS.get(alert.severity, "#888"),
+                    "title": f"⚡ VoltEdge | {alert.title}",
+                    "text": alert.message,
+                    "fields": fields,
+                    "footer": "VoltEdge Energy Intelligence",
+                    "ts": int(alert.timestamp.timestamp()),
+                }
+            ]
         }
 
     def _build_pagerduty_payload(self, alert: Alert) -> dict:
         payload: dict[str, Any] = {
-            "routing_key":  self.pd_routing_key,
+            "routing_key": self.pd_routing_key,
             "event_action": "trigger",
             "payload": {
-                "summary":   alert.title,
-                "severity":  _PD_SEVERITY.get(alert.severity, "warning"),
-                "source":    alert.site_id or "voltedge",
+                "summary": alert.title,
+                "severity": _PD_SEVERITY.get(alert.severity, "warning"),
+                "source": alert.site_id or "voltedge",
                 "component": alert.source,
                 "custom_details": {
                     "message": alert.message,
@@ -273,7 +283,7 @@ class AlertDispatcher:
                 },
                 "timestamp": alert.timestamp.isoformat(),
             },
-            "client":     "VoltEdge",
+            "client": "VoltEdge",
             "client_url": "http://localhost:8050",
         }
         if alert.dedup_key:
@@ -283,6 +293,7 @@ class AlertDispatcher:
 
 # ── Convenience factory functions ─────────────────────────────────────────────
 
+
 def anomaly_alert(
     site_id: str,
     anomaly_score: float,
@@ -291,9 +302,11 @@ def anomaly_alert(
 ) -> Alert:
     """Pre-built alert for anomaly detector events."""
     severity = (
-        AlertSeverity.CRITICAL if anomaly_score >= 0.95 else
-        AlertSeverity.HIGH     if anomaly_score >= 0.80 else
-        AlertSeverity.MEDIUM
+        AlertSeverity.CRITICAL
+        if anomaly_score >= 0.95
+        else AlertSeverity.HIGH
+        if anomaly_score >= 0.80
+        else AlertSeverity.MEDIUM
     )
     return Alert(
         title=f"Anomaly Detected — {site_id}",
@@ -303,8 +316,8 @@ def anomaly_alert(
         source="anomaly_detector",
         details={
             "anomaly_score": anomaly_score,
-            "label":         label,
-            "timestamp":     timestamp,
+            "label": label,
+            "timestamp": timestamp,
         },
         dedup_key=f"anomaly-{site_id}-{timestamp}",
     )

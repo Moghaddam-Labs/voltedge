@@ -18,11 +18,11 @@ Priority order the callback uses:
   2. API server reachable on :8000 → HTTP mode (existing behaviour)
   3. Neither → styled "set your API key" prompt
 """
+
 from __future__ import annotations
 
 import os
 from functools import lru_cache
-from typing import Optional
 
 from voltedge.utils.logger import get_logger
 
@@ -52,20 +52,19 @@ def _get_assistant():
         "FRANKFURT-DC-01",
     ]
 
-    store    = LocalStore()
+    store = LocalStore()
     executor = ToolExecutor(store=store, sites=SITES)
 
     dry_run = not api_key_available()
     if dry_run:
-        log.warning("ai.direct.dry_run_mode",
-                    reason="ANTHROPIC_API_KEY not set")
+        log.warning("ai.direct.dry_run_mode", reason="ANTHROPIC_API_KEY not set")
 
     assistant = EnergyAssistant(executor=executor, dry_run=dry_run)
     log.info("ai.direct.assistant_created", dry_run=dry_run)
     return assistant
 
 
-def chat(message: str, session_id: Optional[str] = None) -> tuple[str, str]:
+def chat(message: str, session_id: str | None = None) -> tuple[str, str]:
     """
     Send a message to the assistant and return (answer, session_id).
 
@@ -94,12 +93,12 @@ def status() -> dict:
     key_set = api_key_available()
     if not key_set:
         return {
-            "mode":    "no_key",
-            "ready":   False,
+            "mode": "no_key",
+            "ready": False,
             "message": "Set ANTHROPIC_API_KEY to enable the AI assistant.",
         }
     return {
-        "mode":    "direct",
-        "ready":   True,
+        "mode": "direct",
+        "ready": True,
         "message": "AI assistant ready (direct mode — no API server needed).",
     }

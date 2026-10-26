@@ -26,7 +26,6 @@ import asyncio
 import json
 import queue
 import threading
-from datetime import datetime, timezone
 from typing import Any
 
 from voltedge.utils.logger import get_logger
@@ -50,21 +49,19 @@ class LiveDataClient:
 
     def __init__(
         self,
-        ws_url:      str   = "ws://localhost:8000/ws/stream",
-        site_id:     str | None = None,
-        max_queue:   int   = 500,
+        ws_url: str = "ws://localhost:8000/ws/stream",
+        site_id: str | None = None,
+        max_queue: int = 500,
         reconnect_s: float = 3.0,
     ) -> None:
-        self._url        = f"{ws_url}/{site_id}" if site_id else ws_url
-        self._max_q      = max_queue
-        self._reconnect  = reconnect_s
-        self._queue:     queue.Queue[dict[str, Any]] = queue.Queue(maxsize=max_queue)
-        self._thread:    threading.Thread | None = None
-        self._stop_evt:  threading.Event = threading.Event()
+        self._url = f"{ws_url}/{site_id}" if site_id else ws_url
+        self._max_q = max_queue
+        self._reconnect = reconnect_s
+        self._queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=max_queue)
+        self._thread: threading.Thread | None = None
+        self._stop_evt: threading.Event = threading.Event()
         self._connected: bool = False
-        self._stats: dict[str, int] = {
-            "received": 0, "dropped": 0, "reconnects": 0
-        }
+        self._stats: dict[str, int] = {"received": 0, "dropped": 0, "reconnects": 0}
         # In-memory KPI state (updated as events arrive)
         self._kpi: dict[str, Any] = {}
         self._latest_per_site: dict[str, dict[str, Any]] = {}
@@ -128,10 +125,10 @@ class LiveDataClient:
     def stats(self) -> dict[str, Any]:
         return {
             **self._stats,
-            "connected":      self._connected,
-            "queue_depth":    self._queue.qsize(),
-            "tracked_sites":  len(self._latest_per_site),
-            "anomalous":      len(self._anomalous_sites),
+            "connected": self._connected,
+            "queue_depth": self._queue.qsize(),
+            "tracked_sites": len(self._latest_per_site),
+            "anomalous": len(self._anomalous_sites),
         }
 
     # ── Background thread ─────────────────────────────────────────────────────
@@ -172,8 +169,9 @@ class LiveDataClient:
             except Exception as exc:
                 self._connected = False
                 self._stats["reconnects"] += 1
-                log.warning("live_client.disconnected", error=str(exc),
-                            reconnects=self._stats["reconnects"])
+                log.warning(
+                    "live_client.disconnected", error=str(exc), reconnects=self._stats["reconnects"]
+                )
 
             if not self._stop_evt.is_set():
                 await asyncio.sleep(self._reconnect)
@@ -183,7 +181,7 @@ class LiveDataClient:
     def _process_message(self, msg: dict[str, Any]) -> None:
         """Update in-memory state and queue the message for Dash."""
         event_type = msg.get("type", "")
-        site_id    = msg.get("site_id", "")
+        site_id = msg.get("site_id", "")
 
         # Update in-memory state
         if event_type == "reading.ingested" and site_id:
@@ -199,7 +197,7 @@ class LiveDataClient:
             self._kpi.update(msg.get("data", {}))
 
         elif event_type in ("connected", "ping"):
-            return   # Control messages — don't queue
+            return  # Control messages — don't queue
 
         # Queue for Dash callbacks
         self._stats["received"] += 1

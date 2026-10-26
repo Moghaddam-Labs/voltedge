@@ -21,17 +21,20 @@ Designed to feed directly into:
 
 from __future__ import annotations
 
+import json
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, Integer, String, Text, UniqueConstraint,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
-import json
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from voltedge.utils.logger import get_logger
 
@@ -40,66 +43,68 @@ log = get_logger(__name__)
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
+
 class TenantTier(str, Enum):
-    STARTER      = "starter"       # ≤5 sites, no LSTM, no ERP
+    STARTER = "starter"  # ≤5 sites, no LSTM, no ERP
     PROFESSIONAL = "professional"  # ≤20 sites, all ML, no ERP
-    ENTERPRISE   = "enterprise"    # Unlimited, all features, ERP, SLA
+    ENTERPRISE = "enterprise"  # Unlimited, all features, ERP, SLA
 
 
 class TenantStatus(str, Enum):
-    LEAD      = "lead"       # Prospect — not yet onboarded
-    TRIAL     = "trial"      # Active 30-day trial
-    ACTIVE    = "active"     # Paying customer
+    LEAD = "lead"  # Prospect — not yet onboarded
+    TRIAL = "trial"  # Active 30-day trial
+    ACTIVE = "active"  # Paying customer
     SUSPENDED = "suspended"  # Payment failed / compliance hold
-    CHURNED   = "churned"    # Cancelled
+    CHURNED = "churned"  # Cancelled
 
 
 # ── Tier entitlements ─────────────────────────────────────────────────────────
 
 TIER_ENTITLEMENTS: dict[TenantTier, dict[str, Any]] = {
     TenantTier.STARTER: {
-        "max_sites":             5,
+        "max_sites": 5,
         "max_api_calls_per_day": 1_000,
-        "max_data_gb":           10,
-        "forecast":              True,
-        "anomaly":               True,
-        "esg":                   True,
-        "pdf_export":            False,
-        "lstm":                  False,
-        "erp_integration":       False,
-        "sla_uptime_pct":        99.0,
-        "support_tier":          "community",
+        "max_data_gb": 10,
+        "forecast": True,
+        "anomaly": True,
+        "esg": True,
+        "pdf_export": False,
+        "lstm": False,
+        "erp_integration": False,
+        "sla_uptime_pct": 99.0,
+        "support_tier": "community",
     },
     TenantTier.PROFESSIONAL: {
-        "max_sites":             20,
+        "max_sites": 20,
         "max_api_calls_per_day": 10_000,
-        "max_data_gb":           100,
-        "forecast":              True,
-        "anomaly":               True,
-        "esg":                   True,
-        "pdf_export":            True,
-        "lstm":                  True,
-        "erp_integration":       False,
-        "sla_uptime_pct":        99.5,
-        "support_tier":          "email",
+        "max_data_gb": 100,
+        "forecast": True,
+        "anomaly": True,
+        "esg": True,
+        "pdf_export": True,
+        "lstm": True,
+        "erp_integration": False,
+        "sla_uptime_pct": 99.5,
+        "support_tier": "email",
     },
     TenantTier.ENTERPRISE: {
-        "max_sites":             -1,   # unlimited
-        "max_api_calls_per_day": -1,   # unlimited
-        "max_data_gb":           -1,   # unlimited
-        "forecast":              True,
-        "anomaly":               True,
-        "esg":                   True,
-        "pdf_export":            True,
-        "lstm":                  True,
-        "erp_integration":       True,
-        "sla_uptime_pct":        99.9,
-        "support_tier":          "dedicated",
+        "max_sites": -1,  # unlimited
+        "max_api_calls_per_day": -1,  # unlimited
+        "max_data_gb": -1,  # unlimited
+        "forecast": True,
+        "anomaly": True,
+        "esg": True,
+        "pdf_export": True,
+        "lstm": True,
+        "erp_integration": True,
+        "sla_uptime_pct": 99.9,
+        "support_tier": "dedicated",
     },
 }
 
 
 # ── DB Model ──────────────────────────────────────────────────────────────────
+
 
 class TenantBase(DeclarativeBase):
     pass
@@ -107,35 +112,37 @@ class TenantBase(DeclarativeBase):
 
 class Tenant(TenantBase):
     """Enterprise tenant record."""
+
     __tablename__ = "tenants"
 
-    id:             Mapped[str]  = mapped_column(String, primary_key=True,
-                                                  default=lambda: str(uuid.uuid4()))
-    tenant_id:      Mapped[str]  = mapped_column(String, unique=True, nullable=False)
-    company_name:   Mapped[str]  = mapped_column(String, nullable=False)
-    contact_email:  Mapped[str]  = mapped_column(String, nullable=False)
-    contact_name:   Mapped[str]  = mapped_column(String, default="")
-    tier:           Mapped[str]  = mapped_column(String, default=TenantTier.STARTER.value)
-    status:         Mapped[str]  = mapped_column(String, default=TenantStatus.LEAD.value)
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    tenant_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    company_name: Mapped[str] = mapped_column(String, nullable=False)
+    contact_email: Mapped[str] = mapped_column(String, nullable=False)
+    contact_name: Mapped[str] = mapped_column(String, default="")
+    tier: Mapped[str] = mapped_column(String, default=TenantTier.STARTER.value)
+    status: Mapped[str] = mapped_column(String, default=TenantStatus.LEAD.value)
 
     # Trial
-    trial_starts_at:  Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    trial_ends_at:    Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    trial_duration_days: Mapped[int]          = mapped_column(Integer, default=30)
+    trial_starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_duration_days: Mapped[int] = mapped_column(Integer, default=30)
 
     # Billing
-    billing_anchor_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    marketplace_customer_id: Mapped[str | None]  = mapped_column(String, nullable=True)
-    aws_account_id:          Mapped[str | None]  = mapped_column(String, nullable=True)
+    billing_anchor_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    marketplace_customer_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    aws_account_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Usage (rolling 24h counters — reset by scheduler)
-    api_calls_today: Mapped[int]   = mapped_column(Integer, default=0)
-    sites_count:     Mapped[int]   = mapped_column(Integer, default=0)
-    data_gb_used:    Mapped[float] = mapped_column(Float,   default=0.0)
+    api_calls_today: Mapped[int] = mapped_column(Integer, default=0)
+    sites_count: Mapped[int] = mapped_column(Integer, default=0)
+    data_gb_used: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Onboarding checklist (JSON list of completed step keys)
     onboarding_json: Mapped[str] = mapped_column(Text, default="[]")
-    notes_json:      Mapped[str] = mapped_column(Text, default="{}")
+    notes_json: Mapped[str] = mapped_column(Text, default="{}")
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -157,7 +164,11 @@ class Tenant(TenantBase):
         if not self.trial_ends_at:
             return False
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        ends = self.trial_ends_at.replace(tzinfo=None) if self.trial_ends_at.tzinfo else self.trial_ends_at
+        ends = (
+            self.trial_ends_at.replace(tzinfo=None)
+            if self.trial_ends_at.tzinfo
+            else self.trial_ends_at
+        )
         return now < ends
 
     @property
@@ -165,7 +176,11 @@ class Tenant(TenantBase):
         if not self.trial_ends_at:
             return 0
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        ends = self.trial_ends_at.replace(tzinfo=None) if self.trial_ends_at.tzinfo else self.trial_ends_at
+        ends = (
+            self.trial_ends_at.replace(tzinfo=None)
+            if self.trial_ends_at.tzinfo
+            else self.trial_ends_at
+        )
         delta = ends - now
         return max(0, delta.days)
 
@@ -201,6 +216,7 @@ ONBOARDING_STEPS = [
 
 
 # ── Tenant service ────────────────────────────────────────────────────────────
+
 
 class TenantService:
     """Full tenant lifecycle operations."""
@@ -249,8 +265,7 @@ class TenantService:
         tenant.trial_ends_at = now + timedelta(days=duration_days)
         tenant.trial_duration_days = duration_days
         self.db.commit()
-        log.info("tenant.trial_started", tenant=tenant_id,
-                 ends_at=tenant.trial_ends_at.isoformat())
+        log.info("tenant.trial_started", tenant=tenant_id, ends_at=tenant.trial_ends_at.isoformat())
         return tenant
 
     def activate(
@@ -315,8 +330,12 @@ class TenantService:
             steps.append(step)
             tenant.onboarding_json = json.dumps(steps)
             self.db.commit()
-            log.info("tenant.onboarding_step", tenant=tenant_id, step=step,
-                     progress=f"{len(steps)}/{len(ONBOARDING_STEPS)}")
+            log.info(
+                "tenant.onboarding_step",
+                tenant=tenant_id,
+                step=step,
+                progress=f"{len(steps)}/{len(ONBOARDING_STEPS)}",
+            )
         return tenant
 
     def onboarding_progress(self, tenant_id: str) -> dict[str, Any]:
@@ -325,11 +344,11 @@ class TenantService:
         total = len(ONBOARDING_STEPS)
         done = sum(1 for s in ONBOARDING_STEPS if s in completed)
         return {
-            "tenant_id":      tenant_id,
-            "completed":      [s for s in ONBOARDING_STEPS if s in completed],
-            "pending":        [s for s in ONBOARDING_STEPS if s not in completed],
-            "progress_pct":   round(done / total * 100, 1),
-            "total_steps":    total,
+            "tenant_id": tenant_id,
+            "completed": [s for s in ONBOARDING_STEPS if s in completed],
+            "pending": [s for s in ONBOARDING_STEPS if s not in completed],
+            "progress_pct": round(done / total * 100, 1),
+            "total_steps": total,
             "steps_complete": done,
         }
 
@@ -404,8 +423,7 @@ class TenantService:
     def pipeline_summary(self) -> dict[str, int]:
         """CRM-style pipeline summary."""
         return {
-            s.value: self.db.query(Tenant).filter_by(status=s.value).count()
-            for s in TenantStatus
+            s.value: self.db.query(Tenant).filter_by(status=s.value).count() for s in TenantStatus
         }
 
     # ── Internal ──────────────────────────────────────────────────────────────

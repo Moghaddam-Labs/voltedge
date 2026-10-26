@@ -1,19 +1,26 @@
 """Tests for the StreamingPipeline."""
+
 from __future__ import annotations
+
 import asyncio
+
 import pytest
+
 from voltedge.streaming.broker import InMemoryBroker
 from voltedge.streaming.events import EnergyEvent, EventType
 from voltedge.streaming.pipeline import StreamingPipeline, _std
 
 SITE = "PIPE-TEST-01"
-TS   = "2026-05-15T14:00:00+00:00"
+TS = "2026-05-15T14:00:00+00:00"
 
 
 def _raw(kwh=100.0, ts=TS):
     return EnergyEvent(
-        event_type=EventType.RAW, site_id=SITE,
-        sensor_id="M1", timestamp=ts, kwh=kwh,
+        event_type=EventType.RAW,
+        site_id=SITE,
+        sensor_id="M1",
+        timestamp=ts,
+        kwh=kwh,
     )
 
 
@@ -30,8 +37,8 @@ async def _run_one_event(event, threshold=0.5):
             if len(results[key]) >= n:
                 break
 
-    proc_topic  = broker.topic_for(SITE, "processed")
-    anom_topic  = broker.topic_for(SITE, "anomaly")
+    proc_topic = broker.topic_for(SITE, "processed")
+    anom_topic = broker.topic_for(SITE, "anomaly")
     alert_topic = broker.topic_for(SITE, "alert")
 
     async def publish_and_close():
@@ -42,7 +49,7 @@ async def _run_one_event(event, threshold=0.5):
 
     await asyncio.gather(
         collect("processed", proc_topic),
-        collect("anomaly",   anom_topic),
+        collect("anomaly", anom_topic),
         publish_and_close(),
     )
     await pipeline.stop()
@@ -51,8 +58,9 @@ async def _run_one_event(event, threshold=0.5):
 
 # ── Feature extraction ────────────────────────────────────────────────────────
 
+
 def test_extract_features_has_cyclic_fields():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     features = pipeline._extract_features(_raw())
     for key in ("hour_sin", "hour_cos", "dow_sin", "dow_cos", "is_weekend"):
@@ -60,14 +68,14 @@ def test_extract_features_has_cyclic_fields():
 
 
 def test_extract_features_kwh():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     features = pipeline._extract_features(_raw(kwh=250.0))
     assert features["kwh"] == 250.0
 
 
 def test_extract_features_cyclic_in_range():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     features = pipeline._extract_features(_raw())
     assert -1.0 <= features["hour_sin"] <= 1.0
@@ -76,26 +84,26 @@ def test_extract_features_cyclic_in_range():
 
 def test_rolling_window_lag_after_two_events():
     """_process_one appends kwh THEN calls _extract_features; mirror that here."""
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
-    pipeline._windows[SITE].append(100.0)   # previous reading
-    pipeline._windows[SITE].append(150.0)   # current (as _process_one would append)
+    pipeline._windows[SITE].append(100.0)  # previous reading
+    pipeline._windows[SITE].append(150.0)  # current (as _process_one would append)
     features = pipeline._extract_features(_raw(kwh=150.0))
     assert "kwh_lag_1" in features
     assert features["kwh_lag_1"] == pytest.approx(100.0)
 
 
 def test_rolling_window_delta():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
-    pipeline._windows[SITE].append(100.0)   # previous
-    pipeline._windows[SITE].append(120.0)   # current
+    pipeline._windows[SITE].append(100.0)  # previous
+    pipeline._windows[SITE].append(120.0)  # current
     f = pipeline._extract_features(_raw(kwh=120.0))
     assert f["kwh_delta"] == pytest.approx(20.0)
 
 
 def test_rolling_mean_24_after_24_events():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     for i in range(24):
         pipeline._windows[SITE].append(float(i * 10))
@@ -104,6 +112,7 @@ def test_rolling_mean_24_after_24_events():
 
 
 # ── Rule-based scoring ────────────────────────────────────────────────────────
+
 
 def test_rule_based_normal_score_is_low():
     score, label = StreamingPipeline._rule_based_score({"kwh": 100.0})
@@ -140,7 +149,9 @@ def test_rule_based_extreme_consumption():
 
 def test_rule_based_unexpected_low_load():
     features = {
-        "kwh": 0.5, "kwh_roll_mean_24": 200.0, "is_business_hour": 1.0,
+        "kwh": 0.5,
+        "kwh_roll_mean_24": 200.0,
+        "is_business_hour": 1.0,
     }
     score, label = StreamingPipeline._rule_based_score(features)
     assert score >= 0.75
@@ -149,8 +160,9 @@ def test_rule_based_unexpected_low_load():
 
 # ── Pipeline end-to-end ───────────────────────────────────────────────────────
 
+
 def test_pipeline_publishes_processed_event():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker, anomaly_threshold=0.9)
     received = []
 
@@ -163,7 +175,7 @@ def test_pipeline_publishes_processed_event():
         async def flow():
             await asyncio.sleep(0.05)
             await pipeline.start([SITE])
-            await asyncio.sleep(0.1)   # let consumer task register its queue
+            await asyncio.sleep(0.1)  # let consumer task register its queue
             await broker.publish(broker.topic_for(SITE, "raw"), _raw())
             await asyncio.sleep(0.3)
             await pipeline.stop()
@@ -177,7 +189,7 @@ def test_pipeline_publishes_processed_event():
 
 
 def test_pipeline_publishes_anomaly_event():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker, anomaly_threshold=0.9)
     received = []
 
@@ -205,15 +217,18 @@ def test_pipeline_publishes_anomaly_event():
 
 
 def test_pipeline_fires_alert_on_extreme_spike():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker, anomaly_threshold=0.7)
 
     for _ in range(5):
         pipeline._windows[SITE].append(100.0)
 
     spike_event = EnergyEvent(
-        event_type=EventType.RAW, site_id=SITE,
-        sensor_id="M1", timestamp=TS, kwh=5000.0,
+        event_type=EventType.RAW,
+        site_id=SITE,
+        sensor_id="M1",
+        timestamp=TS,
+        kwh=5000.0,
     )
     alert_received = []
 
@@ -240,7 +255,7 @@ def test_pipeline_fires_alert_on_extreme_spike():
 
 
 def test_pipeline_stats_structure():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     stats = pipeline.stats()
     for key in ("running", "sites", "processed", "anomalies", "errors"):
@@ -248,7 +263,7 @@ def test_pipeline_stats_structure():
 
 
 def test_pipeline_window_grows():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     pipeline._windows[SITE].append(100.0)
     pipeline._windows[SITE].append(110.0)
@@ -256,18 +271,21 @@ def test_pipeline_window_grows():
 
 
 def test_pipeline_window_size_zero_unknown_site():
-    broker   = InMemoryBroker()
+    broker = InMemoryBroker()
     pipeline = StreamingPipeline(broker)
     assert pipeline.window_size("UNKNOWN") == 0
 
 
 # ── Utility ───────────────────────────────────────────────────────────────────
 
+
 def test_std_empty():
     assert _std([]) == 0.0
 
+
 def test_std_single():
     assert _std([5.0]) == 0.0
+
 
 def test_std_known():
     assert _std([2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]) == pytest.approx(2.0, abs=0.01)

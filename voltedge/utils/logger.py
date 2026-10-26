@@ -14,6 +14,7 @@ import sys
 from typing import Any
 
 import structlog
+
 from config.settings import settings
 
 

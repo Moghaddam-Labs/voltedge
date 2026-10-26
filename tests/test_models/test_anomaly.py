@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
+
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.models.anomaly import AnomalyDetector
 from voltedge.processing.transformer import EnergyTransformer

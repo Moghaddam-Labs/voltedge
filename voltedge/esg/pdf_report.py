@@ -28,26 +28,29 @@ from pathlib import Path
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm, mm
 from reportlab.platypus import (
-    HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+    HRFlowable,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
-from reportlab.platypus.flowables import KeepTogether
 
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 # ── Brand colours ─────────────────────────────────────────────────────────────
-VOLT_DARK   = colors.HexColor("#0d0d1a")
-VOLT_BLUE   = colors.HexColor("#00d4ff")
-VOLT_GREEN  = colors.HexColor("#1D9E75")
+VOLT_DARK = colors.HexColor("#0d0d1a")
+VOLT_BLUE = colors.HexColor("#00d4ff")
+VOLT_GREEN = colors.HexColor("#1D9E75")
 VOLT_ORANGE = colors.HexColor("#D85A30")
-VOLT_GRAY   = colors.HexColor("#888780")
-VOLT_LIGHT  = colors.HexColor("#f5f5f0")
+VOLT_GRAY = colors.HexColor("#888780")
+VOLT_LIGHT = colors.HexColor("#f5f5f0")
 
 PAGE_W, PAGE_H = A4
 MARGIN = 1.8 * cm
@@ -69,16 +72,16 @@ class ESGReportGenerator:
         report_title: str = "ESG Energy Intelligence Report",
         compress: int = 1,
     ) -> None:
-        self.logo_path    = Path(logo_path) if logo_path else None
+        self.logo_path = Path(logo_path) if logo_path else None
         self.report_title = report_title
-        self._compress    = compress
-        self._styles      = self._build_styles()
+        self._compress = compress
+        self._styles = self._build_styles()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
     def generate(
         self,
-        metrics: Any,                           # ESGMetrics dataclass
+        metrics: Any,  # ESGMetrics dataclass
         output_path: str | Path = "esg_report.pdf",
         site_comparison: list[Any] | None = None,  # list[ESGMetrics]
         recommendations: list[dict] | None = None,
@@ -98,8 +101,10 @@ class ESGReportGenerator:
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
-            rightMargin=MARGIN, leftMargin=MARGIN,
-            topMargin=MARGIN,   bottomMargin=MARGIN,
+            rightMargin=MARGIN,
+            leftMargin=MARGIN,
+            topMargin=MARGIN,
+            bottomMargin=MARGIN,
             title=self.report_title,
             author="VoltEdge Platform",
             compress=self._compress,
@@ -130,10 +135,14 @@ class ESGReportGenerator:
         """Generate PDF into memory and return raw bytes (for API streaming)."""
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            rightMargin=MARGIN, leftMargin=MARGIN,
-            topMargin=MARGIN, bottomMargin=MARGIN,
-            title=self.report_title, author="VoltEdge Platform",
+            buf,
+            pagesize=A4,
+            rightMargin=MARGIN,
+            leftMargin=MARGIN,
+            topMargin=MARGIN,
+            bottomMargin=MARGIN,
+            title=self.report_title,
+            author="VoltEdge Platform",
             compress=self._compress,
         )
         story = []
@@ -161,7 +170,10 @@ class ESGReportGenerator:
             Spacer(1, 4 * mm),
             Paragraph(f"Site: <b>{m.site_id}</b>", s["body"]),
             Paragraph(f"Period: {period}", s["body"]),
-            Paragraph(f"Generated: {datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC')}", s["muted"]),
+            Paragraph(
+                f"Generated: {datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC')}",
+                s["muted"],
+            ),
             HRFlowable(width="100%", thickness=1, color=VOLT_BLUE, spaceAfter=6 * mm),
             Spacer(1, 4 * mm),
         ]
@@ -179,21 +191,25 @@ class ESGReportGenerator:
         table_data = [["Metric", "Value"]]
         table_data += kpis
         table = Table(table_data, colWidths=[10 * cm, 7 * cm])
-        table.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), VOLT_BLUE),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 10),
-            ("BACKGROUND",  (0, 1), (-1, -1), VOLT_LIGHT),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 9),
-            ("ALIGN",       (1, 0), (1, -1), "RIGHT"),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("TOPPADDING",  (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), VOLT_BLUE),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 10),
+                    ("BACKGROUND", (0, 1), (-1, -1), VOLT_LIGHT),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                    ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ]
+            )
+        )
         return [
             Paragraph("Executive KPIs", s["h2"]),
             Spacer(1, 3 * mm),
@@ -204,28 +220,41 @@ class ESGReportGenerator:
     def _scope2_section(self, m: Any) -> list:
         s = self._styles
         rows = [
-            ["Method",          "tCO₂e",                          "Notes"],
-            ["Location-based",  f"{m.scope_2_location_based_tco2e:.4f}",
-             "Grid average emission factor"],
-            ["Market-based",    f"{m.scope_2_market_based_tco2e:.4f}",
-             "Supplier-specific / RECs applied"],
-            ["Net (market)",    f"{m.scope_2_market_based_tco2e:.4f}",
-             f"{m.renewable_fraction*100:.0f}% renewable coverage"],
+            ["Method", "tCO₂e", "Notes"],
+            [
+                "Location-based",
+                f"{m.scope_2_location_based_tco2e:.4f}",
+                "Grid average emission factor",
+            ],
+            [
+                "Market-based",
+                f"{m.scope_2_market_based_tco2e:.4f}",
+                "Supplier-specific / RECs applied",
+            ],
+            [
+                "Net (market)",
+                f"{m.scope_2_market_based_tco2e:.4f}",
+                f"{m.renewable_fraction * 100:.0f}% renewable coverage",
+            ],
         ]
         table = Table(rows, colWidths=[5 * cm, 4 * cm, 8.5 * cm])
-        table.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), VOLT_GREEN),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 9),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 9),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("TOPPADDING",  (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), VOLT_GREEN),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 9),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         return [
             Paragraph("Scope 2 Greenhouse Gas Emissions", s["h2"]),
             Paragraph(
@@ -241,29 +270,44 @@ class ESGReportGenerator:
     def _gri_section(self, m: Any) -> list:
         s = self._styles
         rows = [
-            ["GRI Standard",   "Disclosure",             "Value"],
-            ["GRI 302-1",      "Energy consumption (GJ)", f"{m.gri_302_1:.2f} GJ"],
-            ["GRI 302-3",      "Energy intensity",
-             f"{m.energy_intensity_kwh_per_unit:.2f} kWh/unit"
-             if m.energy_intensity_kwh_per_unit is not None
-             else "N/A (floor area not configured)"],
-            ["GRI 305-2",      "Scope 2 emissions (location)", f"{m.scope_2_location_based_tco2e:.4f} tCO₂e"],
-            ["GRI 305-2",      "Scope 2 emissions (market)",   f"{m.scope_2_market_based_tco2e:.4f} tCO₂e"],
+            ["GRI Standard", "Disclosure", "Value"],
+            ["GRI 302-1", "Energy consumption (GJ)", f"{m.gri_302_1:.2f} GJ"],
+            [
+                "GRI 302-3",
+                "Energy intensity",
+                f"{m.energy_intensity_kwh_per_unit:.2f} kWh/unit"
+                if m.energy_intensity_kwh_per_unit is not None
+                else "N/A (floor area not configured)",
+            ],
+            [
+                "GRI 305-2",
+                "Scope 2 emissions (location)",
+                f"{m.scope_2_location_based_tco2e:.4f} tCO₂e",
+            ],
+            [
+                "GRI 305-2",
+                "Scope 2 emissions (market)",
+                f"{m.scope_2_market_based_tco2e:.4f} tCO₂e",
+            ],
         ]
         table = Table(rows, colWidths=[4 * cm, 7 * cm, 6.5 * cm])
-        table.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), colors.HexColor("#bf7fff")),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 9),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 9),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("TOPPADDING",  (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#bf7fff")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 9),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         return [
             Paragraph("GRI Standards Disclosure", s["h2"]),
             Spacer(1, 3 * mm),
@@ -274,32 +318,32 @@ class ESGReportGenerator:
     def _compliance_table(self, m: Any) -> list:
         s = self._styles
         rows = [
-            ["Framework",      "Requirement",              "Status"],
-            ["GHG Protocol",   "Scope 2 location + market","✓ Reported"],
-            ["GRI 302-1",      "Energy in GJ",             "✓ Reported"],
-            ["GRI 302-3",      "Energy intensity",         "✓ Reported"],
-            ["CDP Climate",    "Annual CO₂ disclosure",    "✓ Computable"],
-            ["ISO 50001",      "EnPI tracking",            "✓ Tracked"],
-            ["TCFD",           "Climate risk disclosure",  "⚠ Manual input required"],
+            ["Framework", "Requirement", "Status"],
+            ["GHG Protocol", "Scope 2 location + market", "✓ Reported"],
+            ["GRI 302-1", "Energy in GJ", "✓ Reported"],
+            ["GRI 302-3", "Energy intensity", "✓ Reported"],
+            ["CDP Climate", "Annual CO₂ disclosure", "✓ Computable"],
+            ["ISO 50001", "EnPI tracking", "✓ Tracked"],
+            ["TCFD", "Climate risk disclosure", "⚠ Manual input required"],
         ]
         status_colors = {
-            "✓ Reported":   colors.HexColor("#1D9E75"),
+            "✓ Reported": colors.HexColor("#1D9E75"),
             "✓ Computable": colors.HexColor("#1D9E75"),
-            "✓ Tracked":    colors.HexColor("#1D9E75"),
+            "✓ Tracked": colors.HexColor("#1D9E75"),
             "⚠ Manual input required": colors.HexColor("#D85A30"),
         }
         table = Table(rows, colWidths=[4 * cm, 8.5 * cm, 5 * cm])
         style_cmds = [
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), colors.white),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 9),
+            ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 9),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("TOPPADDING",  (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 5),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ]
         for i, row in enumerate(rows[1:], start=1):
@@ -318,28 +362,34 @@ class ESGReportGenerator:
         s = self._styles
         rows = [["Site ID", "kWh", "tCO₂e (loc.)", "tCO₂e (mkt.)", "kgCO₂/kWh"]]
         for m in sites:
-            rows.append([
-                m.site_id,
-                f"{m.total_kwh:,.0f}",
-                f"{m.scope_2_location_based_tco2e:.4f}",
-                f"{m.scope_2_market_based_tco2e:.4f}",
-                f"{m.carbon_intensity_kgco2_per_kwh:.4f}",
-            ])
-        table = Table(rows, colWidths=[4.5*cm, 3*cm, 3.5*cm, 3.5*cm, 3*cm])
-        table.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), VOLT_BLUE),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 8),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 8),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("ALIGN",       (1, 0), (-1, -1), "RIGHT"),
-            ("TOPPADDING",  (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+            rows.append(
+                [
+                    m.site_id,
+                    f"{m.total_kwh:,.0f}",
+                    f"{m.scope_2_location_based_tco2e:.4f}",
+                    f"{m.scope_2_market_based_tco2e:.4f}",
+                    f"{m.carbon_intensity_kgco2_per_kwh:.4f}",
+                ]
+            )
+        table = Table(rows, colWidths=[4.5 * cm, 3 * cm, 3.5 * cm, 3.5 * cm, 3 * cm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), VOLT_BLUE),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 8),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         return [
             Paragraph("Portfolio — Multi-Site Comparison", s["h2"]),
             Spacer(1, 3 * mm),
@@ -350,29 +400,35 @@ class ESGReportGenerator:
     def _recommendations_section(self, recs: list[dict]) -> list:
         s = self._styles
         rows = [["Category", "Description", "Annual Saving", "Effort"]]
-        for r in recs[:8]:   # Cap at 8 to keep on one page
-            rows.append([
-                r.get("category", ""),
-                Paragraph(r.get("description", "")[:120], s["small"]),
-                f"{r.get('currency','')}{r.get('estimated_annual_saving', 0):,.0f}",
-                r.get("effort", ""),
-            ])
-        table = Table(rows, colWidths=[3*cm, 9*cm, 3*cm, 2.5*cm])
-        table.setStyle(TableStyle([
-            ("BACKGROUND",  (0, 0), (-1, 0), VOLT_DARK),
-            ("TEXTCOLOR",   (0, 0), (-1, 0), VOLT_ORANGE),
-            ("FONTNAME",    (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE",    (0, 0), (-1, 0), 8),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
-            ("FONTNAME",    (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE",    (0, 1), (-1, -1), 8),
-            ("GRID",        (0, 0), (-1, -1), 0.3, VOLT_GRAY),
-            ("ALIGN",       (2, 0), (2, -1), "RIGHT"),
-            ("VALIGN",      (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING",  (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ]))
+        for r in recs[:8]:  # Cap at 8 to keep on one page
+            rows.append(
+                [
+                    r.get("category", ""),
+                    Paragraph(r.get("description", "")[:120], s["small"]),
+                    f"{r.get('currency', '')}{r.get('estimated_annual_saving', 0):,.0f}",
+                    r.get("effort", ""),
+                ]
+            )
+        table = Table(rows, colWidths=[3 * cm, 9 * cm, 3 * cm, 2.5 * cm])
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), VOLT_DARK),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), VOLT_ORANGE),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 8),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, VOLT_LIGHT]),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.3, VOLT_GRAY),
+                    ("ALIGN", (2, 0), (2, -1), "RIGHT"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
         return [
             Paragraph("Cost Optimisation Recommendations", s["h2"]),
             Spacer(1, 3 * mm),
@@ -416,20 +472,34 @@ class ESGReportGenerator:
     def _build_styles() -> dict:
         base = getSampleStyleSheet()
         return {
-            "brand": ParagraphStyle("brand", parent=base["Normal"],
-                                    fontSize=18, textColor=VOLT_BLUE,
-                                    fontName="Helvetica-Bold", spaceAfter=2 * mm),
-            "h1":    ParagraphStyle("h1", parent=base["Normal"],
-                                    fontSize=14, textColor=VOLT_DARK,
-                                    fontName="Helvetica-Bold", spaceAfter=2 * mm),
-            "h2":    ParagraphStyle("h2", parent=base["Normal"],
-                                    fontSize=11, textColor=VOLT_DARK,
-                                    fontName="Helvetica-Bold", spaceBefore=4 * mm,
-                                    spaceAfter=1 * mm),
-            "body":  ParagraphStyle("body", parent=base["Normal"],
-                                    fontSize=9, leading=13),
-            "muted": ParagraphStyle("muted", parent=base["Normal"],
-                                    fontSize=8, textColor=VOLT_GRAY, leading=12),
-            "small": ParagraphStyle("small", parent=base["Normal"],
-                                    fontSize=8, leading=11),
+            "brand": ParagraphStyle(
+                "brand",
+                parent=base["Normal"],
+                fontSize=18,
+                textColor=VOLT_BLUE,
+                fontName="Helvetica-Bold",
+                spaceAfter=2 * mm,
+            ),
+            "h1": ParagraphStyle(
+                "h1",
+                parent=base["Normal"],
+                fontSize=14,
+                textColor=VOLT_DARK,
+                fontName="Helvetica-Bold",
+                spaceAfter=2 * mm,
+            ),
+            "h2": ParagraphStyle(
+                "h2",
+                parent=base["Normal"],
+                fontSize=11,
+                textColor=VOLT_DARK,
+                fontName="Helvetica-Bold",
+                spaceBefore=4 * mm,
+                spaceAfter=1 * mm,
+            ),
+            "body": ParagraphStyle("body", parent=base["Normal"], fontSize=9, leading=13),
+            "muted": ParagraphStyle(
+                "muted", parent=base["Normal"], fontSize=8, textColor=VOLT_GRAY, leading=12
+            ),
+            "small": ParagraphStyle("small", parent=base["Normal"], fontSize=8, leading=11),
         }

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import pytest
 
 from voltedge.ingestion.simulators import SimulatedSiteConnector
-from voltedge.models.optimization import CostOptimizer, TARIFFS
+from voltedge.models.optimization import CostOptimizer
 from voltedge.processing.transformer import EnergyTransformer
 
 

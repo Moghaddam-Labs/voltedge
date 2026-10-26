@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import struct
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,6 @@ from voltedge.esg.metrics import ESGCalculator
 from voltedge.esg.pdf_report import ESGReportGenerator
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
-
 
 SITE = "PDF-TEST-SITE"
 
@@ -33,6 +31,7 @@ def generator():
 
 # ── generate() — file output ──────────────────────────────────────────────────
 
+
 def test_generate_creates_file(generator, esg_metrics, tmp_path):
     out = tmp_path / "test_esg.pdf"
     result_path = generator.generate(esg_metrics, output_path=out)
@@ -43,7 +42,7 @@ def test_generate_creates_file(generator, esg_metrics, tmp_path):
 def test_generate_file_is_nonempty(generator, esg_metrics, tmp_path):
     out = tmp_path / "nonempty.pdf"
     generator.generate(esg_metrics, output_path=out)
-    assert out.stat().st_size > 1_000   # A real PDF is always >1kB
+    assert out.stat().st_size > 1_000  # A real PDF is always >1kB
 
 
 def test_generate_returns_path_object(generator, esg_metrics, tmp_path):
@@ -59,6 +58,7 @@ def test_generate_creates_parent_dirs(generator, esg_metrics, tmp_path):
 
 
 # ── generate_bytes() — in-memory ─────────────────────────────────────────────
+
 
 def test_generate_bytes_returns_bytes(generator, esg_metrics):
     pdf_bytes = generator.generate_bytes(esg_metrics)
@@ -83,6 +83,7 @@ def test_generate_bytes_ends_with_eof_marker(generator, esg_metrics):
 
 
 # ── Section content ───────────────────────────────────────────────────────────
+
 
 def test_report_contains_site_id(generator, esg_metrics):
     """PDF with site ID renders without error and is larger than a minimal PDF."""
@@ -114,6 +115,7 @@ def test_report_contains_ghg_protocol(generator, esg_metrics):
 
 # ── With recommendations ──────────────────────────────────────────────────────
 
+
 def test_report_with_recommendations(generator, esg_metrics):
     recs = [
         {
@@ -138,8 +140,10 @@ def test_report_with_recommendations(generator, esg_metrics):
 
 # ── Multi-site comparison ─────────────────────────────────────────────────────
 
+
 def test_report_with_site_comparison(generator, esg_metrics):
     import dataclasses
+
     m2 = dataclasses.replace(esg_metrics, site_id="SITE-B")
     pdf_bytes = generator.generate_bytes(esg_metrics, site_comparison=[esg_metrics, m2])
     base_bytes = generator.generate_bytes(esg_metrics)
@@ -149,6 +153,7 @@ def test_report_with_site_comparison(generator, esg_metrics):
 
 
 # ── ESG API route returns PDF ─────────────────────────────────────────────────
+
 
 def test_esg_pdf_api_route(esg_metrics, tmp_path):
     """Generate from API-style entry point (bytes → write → check)."""

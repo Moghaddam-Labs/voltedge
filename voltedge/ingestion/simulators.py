@@ -27,7 +27,7 @@ SITE_PROFILES: dict[str, dict[str, Any]] = {
     "factory": {
         "base_kwh": 450.0,
         "peak_multiplier": 2.8,
-        "peak_hours": (6, 20),   # 06:00 – 20:00
+        "peak_hours": (6, 20),  # 06:00 – 20:00
         "weekend_factor": 0.35,
     },
     "office": {
@@ -117,16 +117,18 @@ class SimulatedSiteConnector(BaseConnector):
             if is_anomaly:
                 kwh *= self._rng.uniform(2.5, 4.0)
 
-            records.append({
-                "ts": ts.isoformat(),
-                "sensor": f"{self.site_id}-MAIN",
-                "energy_kwh": max(0.0, round(kwh, 2)),
-                "voltage": round(self._rng.gauss(230, 2), 1),
-                "current": round(kwh / 0.23 / 1000 * 1000, 1),  # Approx
-                "pf": round(self._rng.gauss(0.92, 0.02), 3),
-                "temp_c": round(20 + 5 * math.sin(2 * math.pi * hour / 24), 1),
-                "anomaly": is_anomaly,
-            })
+            records.append(
+                {
+                    "ts": ts.isoformat(),
+                    "sensor": f"{self.site_id}-MAIN",
+                    "energy_kwh": max(0.0, round(kwh, 2)),
+                    "voltage": round(self._rng.gauss(230, 2), 1),
+                    "current": round(kwh / 0.23 / 1000 * 1000, 1),  # Approx
+                    "pf": round(self._rng.gauss(0.92, 0.02), 3),
+                    "temp_c": round(20 + 5 * math.sin(2 * math.pi * hour / 24), 1),
+                    "anomaly": is_anomaly,
+                }
+            )
 
         return records
 

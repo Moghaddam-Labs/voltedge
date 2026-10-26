@@ -34,7 +34,8 @@ ANOMALY_FEATURES: list[str] = [
     "kwh_pct_change",
     "kwh_roll_std_24h",
     "kwh_roll_mean_24h",
-    "hour_sin", "hour_cos",
+    "hour_sin",
+    "hour_cos",
     "is_weekend",
     "is_business_hour",
 ]
@@ -85,9 +86,7 @@ class AnomalyDetector:
         Returns a metrics dict (precision proxy via known injected anomalies if available).
         """
         df = self._prepare(df)
-        self._feature_cols = [
-            c for c in ANOMALY_FEATURES + OPTIONAL_FEATURES if c in df.columns
-        ]
+        self._feature_cols = [c for c in ANOMALY_FEATURES + OPTIONAL_FEATURES if c in df.columns]
 
         if not self._feature_cols:
             raise ValueError("No usable feature columns. Run EnergyTransformer first.")
@@ -133,26 +132,32 @@ class AnomalyDetector:
                 if has_label.any():
                     scores = self._model.decision_function(X_scaled)
                     # Anomalies have negative scores; convert to binary predictions
-                    predicted = (scores < np.percentile(scores, self.contamination * 100)).astype(int)
+                    predicted = (scores < np.percentile(scores, self.contamination * 100)).astype(
+                        int
+                    )
                     actual = has_label.astype(int).values
                     tp = int(((predicted == 1) & (actual == 1)).sum())
                     fp = int(((predicted == 1) & (actual == 0)).sum())
                     fn = int(((predicted == 0) & (actual == 1)).sum())
                     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
                     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-                    metrics.update({
-                        "precision": round(precision, 4),
-                        "recall": round(recall, 4),
-                        "f1": round(2 * precision * recall / (precision + recall + 1e-8), 4),
-                        "true_positives": float(tp),
-                        "false_positives": float(fp),
-                    })
+                    metrics.update(
+                        {
+                            "precision": round(precision, 4),
+                            "recall": round(recall, 4),
+                            "f1": round(2 * precision * recall / (precision + recall + 1e-8), 4),
+                            "true_positives": float(tp),
+                            "false_positives": float(fp),
+                        }
+                    )
             except Exception:
                 pass  # Labels not available — skip supervised metrics
 
-        log.info("anomaly.training_complete", site=self.site_id, **{
-            k: v for k, v in metrics.items() if isinstance(v, float)
-        })
+        log.info(
+            "anomaly.training_complete",
+            site=self.site_id,
+            **{k: v for k, v in metrics.items() if isinstance(v, float)},
+        )
         return metrics
 
     # ── Prediction ────────────────────────────────────────────────────────────
@@ -192,9 +197,7 @@ class AnomalyDetector:
         df_feat = df_feat.copy()
         df_feat["anomaly_score"] = np.round(normalized, 4)
         df_feat["is_anomaly"] = sklearn_labels == -1
-        df_feat["anomaly_label"] = df_feat.apply(
-            self._classify_anomaly, axis=1
-        )
+        df_feat["anomaly_label"] = df_feat.apply(self._classify_anomaly, axis=1)
 
         return df_feat
 
@@ -247,9 +250,11 @@ class AnomalyDetector:
 
     def load(self) -> None:
         with open(self._artifact_dir / "model.pkl", "rb") as f:
-            self._model = pickle.load(f)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._model = pickle.load(f)  # nosec B301
         with open(self._artifact_dir / "scaler.pkl", "rb") as f:
-            self._scaler = pickle.load(f)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._scaler = pickle.load(f)  # nosec B301
         meta = json.loads((self._artifact_dir / "metadata.json").read_text())
         self._feature_cols = meta.get("feature_columns", ANOMALY_FEATURES)
         self.contamination = meta.get("contamination", self.contamination)
