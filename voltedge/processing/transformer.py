@@ -114,7 +114,9 @@ class EnergyTransformer:
 
         for window in (3, 6, 12, 24):
             df[f"kwh_roll_mean_{window}h"] = kwh.rolling(window, min_periods=1).mean()
-            df[f"kwh_roll_std_{window}h"] = kwh.rolling(window, min_periods=1).std()
+            # A window with a single reading has zero spread. Pandas returns NaN for
+            # that (the first row of every dataset), which would poison model inputs.
+            df[f"kwh_roll_std_{window}h"] = kwh.rolling(window, min_periods=1).std().fillna(0.0)
 
         df["kwh_roll_max_24h"] = kwh.rolling(24, min_periods=1).max()
         df["kwh_roll_min_24h"] = kwh.rolling(24, min_periods=1).min()

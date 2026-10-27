@@ -34,6 +34,16 @@ def test_transform_adds_rolling_features():
     assert "kwh_roll_std_24h" in df.columns
 
 
+def test_transform_rolling_std_has_no_nan():
+    # Regression: the first row's rolling std used to be NaN, which made the
+    # LSTM's training MAE come out as NaN on some CPUs.
+    df = EnergyTransformer().transform(_raw_df())
+    for window in (3, 6, 12, 24):
+        col = f"kwh_roll_std_{window}h"
+        assert df[col].notna().all(), f"{col} contains NaN"
+        assert df[col].iloc[0] == 0.0
+
+
 def test_transform_no_negative_kwh_after_cleaning():
     raw = _raw_df(hours=300)
     # Manually inject some negatives
