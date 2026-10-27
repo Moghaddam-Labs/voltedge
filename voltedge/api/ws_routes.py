@@ -28,14 +28,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
-from typing import AsyncIterator
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
 from voltedge.streaming.hub import WebSocketHub
-from voltedge.streaming.events import EnergyEvent
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -53,11 +52,12 @@ def get_hub() -> WebSocketHub:
 
 # ── WebSocket — single site ───────────────────────────────────────────────────
 
+
 @ws_router.websocket("/ws/live/{site_id}")
 async def ws_live_site(
     websocket: WebSocket,
-    site_id:   str,
-    hub:       WebSocketHub = Depends(get_hub),
+    site_id: str,
+    hub: WebSocketHub = Depends(get_hub),
 ) -> None:
     """
     WebSocket endpoint for one site's live stream.
@@ -82,10 +82,11 @@ async def ws_live_site(
 
 # ── WebSocket — portfolio (all sites) ─────────────────────────────────────────
 
+
 @ws_router.websocket("/ws/portfolio")
 async def ws_portfolio(
     websocket: WebSocket,
-    hub:       WebSocketHub = Depends(get_hub),
+    hub: WebSocketHub = Depends(get_hub),
 ) -> None:
     """
     WebSocket endpoint for portfolio-level live stream.
@@ -108,6 +109,7 @@ async def ws_portfolio(
 
 # ── SSE — Server-Sent Events ──────────────────────────────────────────────────
 
+
 @ws_router.get("/stream/{site_id}")
 async def sse_stream(site_id: str, hub: WebSocketHub = Depends(get_hub)) -> StreamingResponse:
     """
@@ -118,6 +120,7 @@ async def sse_stream(site_id: str, hub: WebSocketHub = Depends(get_hub)) -> Stre
         const es = new EventSource('/stream/LONDON-FACTORY-01');
         es.onmessage = e => console.log(JSON.parse(e.data));
     """
+
     async def _event_generator() -> AsyncIterator[str]:
         # Initial connection confirmation
         yield _sse({"event": "connected", "site_id": site_id})
@@ -127,23 +130,26 @@ async def sse_stream(site_id: str, hub: WebSocketHub = Depends(get_hub)) -> Stre
         while True:
             await asyncio.sleep(15)
             counter += 1
-            yield _sse({
-                "event": "heartbeat",
-                "ts":    datetime.now(timezone.utc).isoformat(),
-                "seq":   counter,
-            })
+            yield _sse(
+                {
+                    "event": "heartbeat",
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "seq": counter,
+                }
+            )
 
     return StreamingResponse(
         _event_generator(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",   # Disable nginx buffering
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
         },
     )
 
 
 # ── Hub metrics endpoint ──────────────────────────────────────────────────────
+
 
 @ws_router.get("/ws/metrics")
 async def ws_metrics(hub: WebSocketHub = Depends(get_hub)) -> dict:
@@ -152,6 +158,7 @@ async def ws_metrics(hub: WebSocketHub = Depends(get_hub)) -> dict:
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
+
 
 def _sse(data: dict) -> str:
     """Format a dict as an SSE message."""

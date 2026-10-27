@@ -5,15 +5,14 @@ Tests for S3Store — uses moto to mock AWS S3 without real credentials or netwo
 from __future__ import annotations
 
 import asyncio
-import pytest
+
 import pandas as pd
 from moto import mock_aws
 
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
-from voltedge.storage.s3_store import S3Store
 from voltedge.storage.base import LocalStore
-
+from voltedge.storage.s3_store import S3Store
 
 BUCKET = "test-voltedge-bucket"
 REGION = "us-east-1"
@@ -31,6 +30,7 @@ def _make_df(site_id: str = "S3-TEST-01", hours: int = 48) -> pd.DataFrame:
 
 
 # ── Write tests ───────────────────────────────────────────────────────────────
+
 
 @mock_aws
 def test_s3_write_returns_uri():
@@ -60,6 +60,7 @@ def test_s3_write_both_layers():
 
 
 # ── Read tests ────────────────────────────────────────────────────────────────
+
 
 @mock_aws
 def test_s3_read_returns_dataframe():
@@ -111,6 +112,7 @@ def test_s3_read_multiple_writes_merged():
 
 # ── list_sites tests ──────────────────────────────────────────────────────────
 
+
 @mock_aws
 def test_s3_list_sites_empty():
     store = _make_store()
@@ -137,9 +139,11 @@ def test_s3_list_sites_sorted():
 
 # ── API compatibility tests ───────────────────────────────────────────────────
 
+
 @mock_aws
 def test_s3_store_is_base_store_subclass():
     from voltedge.storage.base import BaseStore
+
     store = _make_store()
     assert isinstance(store, BaseStore)
 
@@ -165,10 +169,12 @@ def test_s3_bucket_size_bytes():
 
 # ── Pipeline integration ──────────────────────────────────────────────────────
 
+
 @mock_aws
 def test_pipeline_with_s3_store():
     """Full pipeline run using S3Store instead of LocalStore."""
     import asyncio
+
     from voltedge.core.pipeline import EnergyPipeline
 
     store = _make_store()

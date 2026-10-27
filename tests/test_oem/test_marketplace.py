@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+
 import pytest
 
 from voltedge.oem.marketplace import (
-    DIMENSIONS, MarketplaceMeteringService, MeteringResult, UsageRecord,
+    DIMENSIONS,
+    MarketplaceMeteringService,
+    UsageRecord,
 )
 
 TS = datetime(2026, 5, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -14,6 +17,7 @@ CUST = "aws-cust-abc123"
 
 
 # ── UsageRecord ───────────────────────────────────────────────────────────────
+
 
 def test_usage_record_auto_transaction_id():
     r = UsageRecord(CUST, "active_sites", 5, TS)
@@ -61,6 +65,7 @@ def test_all_dimensions_valid():
 
 # ── resolve_customer (dry_run) ────────────────────────────────────────────────
 
+
 def test_resolve_customer_returns_dict():
     svc = MarketplaceMeteringService(dry_run=True)
     result = svc.resolve_customer("fake-registration-token")
@@ -84,6 +89,7 @@ def test_resolve_customer_different_tokens_different_ids():
 
 # ── meter_usage (dry_run) ─────────────────────────────────────────────────────
 
+
 def test_meter_usage_returns_success():
     svc = MarketplaceMeteringService(dry_run=True)
     record = UsageRecord(CUST, "active_sites", 5, TS)
@@ -100,6 +106,7 @@ def test_meter_usage_invalid_record_raises():
 
 
 # ── batch_meter_usage (dry_run) ───────────────────────────────────────────────
+
 
 def test_batch_empty_list_succeeds():
     svc = MarketplaceMeteringService(dry_run=True)
@@ -121,7 +128,7 @@ def test_batch_with_invalid_records():
     svc = MarketplaceMeteringService(dry_run=True)
     records = [
         UsageRecord(CUST, "active_sites", 5, TS),
-        UsageRecord(CUST, "bad_dim", 5, TS),   # invalid
+        UsageRecord(CUST, "bad_dim", 5, TS),  # invalid
         UsageRecord(CUST, "api_calls", 3, TS),
     ]
     result = svc.batch_meter_usage(records)
@@ -154,6 +161,7 @@ def test_batch_is_dry_run():
 
 
 # ── build_hourly_records ──────────────────────────────────────────────────────
+
 
 def test_build_hourly_records_returns_list():
     usage = [{"customer_id": CUST, "sites_count": 3, "api_calls_hour": 500}]
@@ -214,13 +222,15 @@ def test_build_records_multi_tenant():
 
 
 def test_build_records_all_four_dimensions():
-    usage = [{
-        "customer_id": CUST,
-        "sites_count": 5,
-        "api_calls_hour": 2000,
-        "data_gb_hour": 3.5,
-        "ml_calls_hour": 1500,
-    }]
+    usage = [
+        {
+            "customer_id": CUST,
+            "sites_count": 5,
+            "api_calls_hour": 2000,
+            "data_gb_hour": 3.5,
+            "ml_calls_hour": 1500,
+        }
+    ]
     records = MarketplaceMeteringService.build_hourly_records(usage, hour=TS)
     dims = {r.dimension for r in records}
     assert dims == {"active_sites", "api_calls", "data_gb", "ml_predictions"}

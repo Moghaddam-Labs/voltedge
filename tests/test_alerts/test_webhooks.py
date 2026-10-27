@@ -10,27 +10,33 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 from voltedge.alerts.webhooks import (
-    Alert, AlertDispatcher, AlertSeverity, DispatchResult,
-    anomaly_alert, esg_threshold_alert, retrain_complete_alert,
+    Alert,
+    AlertDispatcher,
+    AlertSeverity,
+    anomaly_alert,
+    esg_threshold_alert,
+    retrain_complete_alert,
 )
-
 
 TS = datetime(2026, 5, 14, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _alert(**kwargs) -> Alert:
     defaults = dict(
-        title="Test Alert", message="Test message",
-        severity=AlertSeverity.HIGH, site_id="SITE-01",
-        source="test", timestamp=TS,
+        title="Test Alert",
+        message="Test message",
+        severity=AlertSeverity.HIGH,
+        site_id="SITE-01",
+        source="test",
+        timestamp=TS,
     )
     return Alert(**{**defaults, **kwargs})
 
 
 # ── Alert dataclass ───────────────────────────────────────────────────────────
+
 
 def test_alert_defaults_severity_to_medium():
     a = Alert(title="T", message="M")
@@ -50,10 +56,9 @@ def test_alert_details_defaults_to_empty():
 
 # ── Dry run ───────────────────────────────────────────────────────────────────
 
+
 def test_dry_run_slack_returns_success():
-    dispatcher = AlertDispatcher(
-        slack_webhook_url="https://hooks.slack.com/test", dry_run=True
-    )
+    dispatcher = AlertDispatcher(slack_webhook_url="https://hooks.slack.com/test", dry_run=True)
     results = asyncio.run(dispatcher.send(_alert()))
     assert len(results) == 1
     assert results[0].channel == "slack"
@@ -103,6 +108,7 @@ def test_send_many_dry_run():
 
 
 # ── Payload builders ──────────────────────────────────────────────────────────
+
 
 def test_slack_payload_has_attachments():
     dispatcher = AlertDispatcher()
@@ -169,6 +175,7 @@ def test_pagerduty_payload_includes_dedup_key():
 
 # ── Mock HTTP transport ───────────────────────────────────────────────────────
 
+
 def test_real_dispatch_with_mock_transport():
     """Simulate a real HTTP call using httpx mock transport."""
     send_calls: list = []
@@ -212,6 +219,7 @@ def test_dispatch_handles_connection_error():
 
 
 # ── Factory functions ─────────────────────────────────────────────────────────
+
 
 def test_anomaly_alert_critical_when_high_score():
     a = anomaly_alert("SITE-01", 0.97, "sudden_spike", "2026-05-14T12:00:00Z")

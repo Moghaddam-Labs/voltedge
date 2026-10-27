@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from voltedge.oem.tenants import (
-    ONBOARDING_STEPS, TIER_ENTITLEMENTS, Tenant, TenantBase,
-    TenantService, TenantStatus, TenantTier,
+    ONBOARDING_STEPS,
+    TIER_ENTITLEMENTS,
+    TenantBase,
+    TenantService,
+    TenantStatus,
+    TenantTier,
 )
 
 
@@ -39,6 +44,7 @@ def _make_tenant(svc, tenant_id="test-corp", **kwargs):
 
 # ── Tier entitlements ─────────────────────────────────────────────────────────
 
+
 def test_enterprise_has_unlimited_sites():
     assert TIER_ENTITLEMENTS[TenantTier.ENTERPRISE]["max_sites"] == -1
 
@@ -65,6 +71,7 @@ def test_enterprise_sla_is_99_9():
 
 # ── Lead creation ─────────────────────────────────────────────────────────────
 
+
 def test_create_lead_returns_tenant(svc):
     t = _make_tenant(svc)
     assert t.tenant_id == "test-corp"
@@ -88,6 +95,7 @@ def test_onboarding_starts_with_account_created(svc):
 
 
 # ── Trial management ──────────────────────────────────────────────────────────
+
 
 def test_start_trial_changes_status(svc):
     _make_tenant(svc)
@@ -144,6 +152,7 @@ def test_list_expiring_trials(svc):
 
 # ── Activation ────────────────────────────────────────────────────────────────
 
+
 def test_activate_tenant(svc):
     _make_tenant(svc)
     t = svc.activate("test-corp", tier=TenantTier.ENTERPRISE)
@@ -165,6 +174,7 @@ def test_activate_stores_marketplace_id(svc):
 
 # ── Suspend / Churn / Reactivate ──────────────────────────────────────────────
 
+
 def test_suspend_tenant(svc):
     _make_tenant(svc)
     t = svc.suspend("test-corp", reason="payment_failed")
@@ -185,6 +195,7 @@ def test_reactivate_tenant(svc):
 
 
 # ── Onboarding checklist ──────────────────────────────────────────────────────
+
 
 def test_complete_onboarding_step(svc):
     _make_tenant(svc)
@@ -227,6 +238,7 @@ def test_onboarding_100_pct_when_all_done(svc):
 
 # ── Usage metering ────────────────────────────────────────────────────────────
 
+
 def test_record_api_call_increments(svc):
     _make_tenant(svc)
     svc.start_trial("test-corp", tier=TenantTier.PROFESSIONAL)
@@ -266,6 +278,7 @@ def test_reset_daily_counters(svc):
 
 
 # ── Pipeline summary ──────────────────────────────────────────────────────────
+
 
 def test_pipeline_summary_structure(svc):
     _make_tenant(svc, tenant_id="a")

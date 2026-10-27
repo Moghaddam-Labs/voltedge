@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import pytest
+
 from voltedge.oem.feature_flags import (
-    FEATURE_FLAGS, FeatureFlagService, FlagDefinition, Tier,
+    FEATURE_FLAGS,
+    FeatureFlagService,
+    Tier,
 )
 
 
@@ -15,9 +18,16 @@ def svc():
 
 # ── Flag catalogue ────────────────────────────────────────────────────────────
 
+
 def test_catalogue_has_expected_flags():
-    for key in ("forecast_v2_model", "lstm_streaming", "pdf_export",
-                "erp_sap", "dark_mode", "esg_scope3"):
+    for key in (
+        "forecast_v2_model",
+        "lstm_streaming",
+        "pdf_export",
+        "erp_sap",
+        "dark_mode",
+        "esg_scope3",
+    ):
         assert key in FEATURE_FLAGS, f"Missing flag: {key}"
 
 
@@ -32,6 +42,7 @@ def test_all_flags_have_keys_matching_dict():
 
 
 # ── Tier defaults ─────────────────────────────────────────────────────────────
+
 
 def test_enterprise_has_erp_sap(svc):
     assert svc.is_enabled("erp_sap", "corp-A", Tier.ENTERPRISE)
@@ -69,6 +80,7 @@ def test_esg_scope3_not_released(svc):
 
 
 # ── Tenant overrides ──────────────────────────────────────────────────────────
+
 
 def test_override_enables_for_starter(svc):
     svc.set_override("early-adopter", "erp_sap", True)
@@ -108,6 +120,7 @@ def test_set_override_unknown_flag_raises(svc):
 
 # ── get_all_flags ─────────────────────────────────────────────────────────────
 
+
 def test_get_all_flags_returns_all(svc):
     flags = svc.get_all_flags("corp-K", Tier.ENTERPRISE)
     assert set(flags.keys()) == set(FEATURE_FLAGS.keys())
@@ -127,6 +140,7 @@ def test_get_all_flags_starter_no_erp(svc):
 
 # ── Rollout ───────────────────────────────────────────────────────────────────
 
+
 def test_rollout_deterministic():
     svc = FeatureFlagService()
     r1 = svc.is_enabled("lstm_streaming", "shell-energy", Tier.ENTERPRISE)
@@ -138,8 +152,7 @@ def test_rollout_different_tenants_may_differ():
     """With 25% rollout, some Enterprise tenants should be in, some out."""
     svc = FeatureFlagService()
     results = [
-        svc.is_enabled("lstm_streaming", f"tenant-{i:04d}", Tier.ENTERPRISE)
-        for i in range(100)
+        svc.is_enabled("lstm_streaming", f"tenant-{i:04d}", Tier.ENTERPRISE) for i in range(100)
     ]
     # With 25% rollout we expect roughly 25 enabled — at least some True and some False
     assert any(results), "Expected at least some tenants to have lstm_streaming"
@@ -148,23 +161,18 @@ def test_rollout_different_tenants_may_differ():
 
 def test_rollout_0pct_disabled_for_all():
     svc = FeatureFlagService()
-    results = [
-        svc.is_enabled("esg_scope3", f"t-{i}", Tier.ENTERPRISE)
-        for i in range(20)
-    ]
+    results = [svc.is_enabled("esg_scope3", f"t-{i}", Tier.ENTERPRISE) for i in range(20)]
     assert not any(results)
 
 
 def test_rollout_100pct_enabled_for_all():
     svc = FeatureFlagService()
-    results = [
-        svc.is_enabled("marketplace_checkout", f"t-{i}", Tier.STARTER)
-        for i in range(20)
-    ]
+    results = [svc.is_enabled("marketplace_checkout", f"t-{i}", Tier.STARTER) for i in range(20)]
     assert all(results)
 
 
 # ── Unknown flag ──────────────────────────────────────────────────────────────
+
 
 def test_unknown_flag_returns_false(svc):
     result = svc.is_enabled("does_not_exist", "corp-X", Tier.ENTERPRISE)
@@ -172,6 +180,7 @@ def test_unknown_flag_returns_false(svc):
 
 
 # ── flags_for_tier ────────────────────────────────────────────────────────────
+
 
 def test_flags_for_enterprise_tier(svc):
     flags = svc.flags_for_tier(Tier.ENTERPRISE)
@@ -187,6 +196,7 @@ def test_flags_for_starter_tier(svc):
 
 
 # ── list_flags / summary ──────────────────────────────────────────────────────
+
 
 def test_list_flags_returns_all(svc):
     flags = svc.list_flags()

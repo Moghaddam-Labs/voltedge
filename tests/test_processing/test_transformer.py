@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import numpy as np
+
 import pandas as pd
-import pytest
 
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer

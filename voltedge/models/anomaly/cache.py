@@ -15,11 +15,11 @@ never retrains on every callback. Design decisions:
     (None, None) so the caller can show a helpful placeholder rather
     than a blank chart.
 """
+
 from __future__ import annotations
 
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import pandas as pd
 
@@ -28,24 +28,25 @@ from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-MIN_ROWS     = 48           # 2 days of hourly data — minimum to train reliably
-CACHE_TTL    = timedelta(minutes=30)
-PREWARM_HOURS = 168         # 7-day window used for pre-warming
+MIN_ROWS = 48  # 2 days of hourly data — minimum to train reliably
+CACHE_TTL = timedelta(minutes=30)
+PREWARM_HOURS = 168  # 7-day window used for pre-warming
 
 # ── Cache store ───────────────────────────────────────────────────────────────
 # { (site_id, hours): (detector, predictions_df, cached_at) }
 _cache: dict[tuple, tuple[AnomalyDetector, pd.DataFrame, datetime]] = {}
-_lock  = threading.Lock()
+_lock = threading.Lock()
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
+
 
 def get_anomaly_results(
     site_id: str,
     df: pd.DataFrame,
     hours: int = 168,
     contamination: float = 0.05,
-) -> tuple[Optional[AnomalyDetector], Optional[pd.DataFrame]]:
+) -> tuple[AnomalyDetector | None, pd.DataFrame | None]:
     """
     Return (detector, predictions_df) for the given site and data.
 
@@ -78,7 +79,7 @@ def _train_and_cache(
     hours: int,
     contamination: float,
     key: tuple,
-) -> tuple[Optional[AnomalyDetector], Optional[pd.DataFrame]]:
+) -> tuple[AnomalyDetector | None, pd.DataFrame | None]:
     """Train a new model, cache it, and return results."""
     if len(df) < MIN_ROWS:
         log.warning(
@@ -92,7 +93,7 @@ def _train_and_cache(
     try:
         detector = AnomalyDetector(site_id=site_id, contamination=contamination)
         detector.train(df)
-        anom_df  = detector.predict(df)
+        anom_df = detector.predict(df)
 
         with _lock:
             _cache[key] = (detector, anom_df, datetime.now(timezone.utc))

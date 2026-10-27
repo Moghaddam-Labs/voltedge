@@ -19,14 +19,13 @@ All analytics endpoints gate on the 'analytics:read' RBAC permission.
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from voltedge.ai.assistant import EnergyAssistant
-from voltedge.ai.context_builder import ContextBuilder
 from voltedge.ai.executor import ToolExecutor
 from voltedge.storage.base import LocalStore
 from voltedge.utils.logger import get_logger
@@ -36,26 +35,32 @@ ai_router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 # ── Request / response models ─────────────────────────────────────────────────
 
+
 class ChatRequest(BaseModel):
-    message:    str        = Field(..., min_length=1, max_length=2000, json_schema_extra={"example": "Why did LONDON-FACTORY-01 spike at 2pm?"})
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        json_schema_extra={"example": "Why did LONDON-FACTORY-01 spike at 2pm?"},
+    )
     session_id: str | None = Field(default=None, json_schema_extra={"example": "abc12345"})
 
 
 class ChatResponse(BaseModel):
     session_id: str
-    response:   str
+    response: str
     turn_count: int
 
 
 class AnalyzeRequest(BaseModel):
-    question:   str  = Field(..., json_schema_extra={"example": "What is our energy trend this week?"})
-    hours:      int  = Field(default=24, ge=1, le=720)
+    question: str = Field(..., json_schema_extra={"example": "What is our energy trend this week?"})
+    hours: int = Field(default=24, ge=1, le=720)
 
 
 class ReportRequest(BaseModel):
-    site_ids:   list[str] = Field(..., json_schema_extra={"example": ["LONDON-FACTORY-01"]})
-    hours:      int       = Field(default=168, ge=1, le=720)
-    focus:      str       = Field(
+    site_ids: list[str] = Field(..., json_schema_extra={"example": ["LONDON-FACTORY-01"]})
+    hours: int = Field(default=168, ge=1, le=720)
+    focus: str = Field(
         default="general",
         json_schema_extra={"example": "anomalies"},
         description="One of: general, anomalies, esg, cost, forecast",
@@ -64,10 +69,9 @@ class ReportRequest(BaseModel):
 
 # ── Dependency: assistant singleton ──────────────────────────────────────────
 
-_store     = LocalStore()
-_sites     = ["LONDON-FACTORY-01", "DUBAI-OFFICE-01",
-              "ROTTERDAM-WAREHOUSE-01", "FRANKFURT-DC-01"]
-_executor  = ToolExecutor(store=_store, sites=_sites)
+_store = LocalStore()
+_sites = ["LONDON-FACTORY-01", "DUBAI-OFFICE-01", "ROTTERDAM-WAREHOUSE-01", "FRANKFURT-DC-01"]
+_executor = ToolExecutor(store=_store, sites=_sites)
 _assistant = EnergyAssistant(executor=_executor, dry_run=True)  # dry_run until API key set
 
 
@@ -77,11 +81,12 @@ def get_assistant() -> EnergyAssistant:
 
 # ── Chat endpoints ────────────────────────────────────────────────────────────
 
+
 @ai_router.post("/chat", response_model=ChatResponse)
 def chat(
-    body:       ChatRequest,
-    assistant:  EnergyAssistant = Depends(get_assistant),
-    x_session_id: str | None    = Header(default=None, alias="X-Session-ID"),
+    body: ChatRequest,
+    assistant: EnergyAssistant = Depends(get_assistant),
+    x_session_id: str | None = Header(default=None, alias="X-Session-ID"),
 ) -> ChatResponse:
     """
     Send a message to the energy assistant.
@@ -106,9 +111,9 @@ def chat(
 
 @ai_router.post("/chat/stream")
 def chat_stream(
-    body:       ChatRequest,
-    assistant:  EnergyAssistant = Depends(get_assistant),
-    x_session_id: str | None    = Header(default=None, alias="X-Session-ID"),
+    body: ChatRequest,
+    assistant: EnergyAssistant = Depends(get_assistant),
+    x_session_id: str | None = Header(default=None, alias="X-Session-ID"),
 ) -> StreamingResponse:
     """
     Streaming chat via Server-Sent Events.
@@ -138,6 +143,7 @@ def chat_stream(
 
 # ── Session management ────────────────────────────────────────────────────────
 
+
 @ai_router.get("/sessions")
 def list_sessions(assistant: EnergyAssistant = Depends(get_assistant)) -> dict:
     return assistant.session_info()
@@ -146,7 +152,7 @@ def list_sessions(assistant: EnergyAssistant = Depends(get_assistant)) -> dict:
 @ai_router.get("/sessions/{session_id}")
 def get_session(
     session_id: str,
-    assistant:  EnergyAssistant = Depends(get_assistant),
+    assistant: EnergyAssistant = Depends(get_assistant),
 ) -> dict:
     session = assistant.get_session(session_id)
     if not session:
@@ -157,7 +163,7 @@ def get_session(
 @ai_router.delete("/sessions/{session_id}", status_code=204)
 def delete_session(
     session_id: str,
-    assistant:  EnergyAssistant = Depends(get_assistant),
+    assistant: EnergyAssistant = Depends(get_assistant),
 ) -> None:
     if session_id not in assistant._sessions:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
@@ -167,20 +173,18 @@ def delete_session(
 
 # ── One-shot analysis ─────────────────────────────────────────────────────────
 
+
 @ai_router.post("/analyze/{site_id}", response_model=ChatResponse)
 def analyze_site(
-    site_id:   str,
-    body:      AnalyzeRequest,
+    site_id: str,
+    body: AnalyzeRequest,
     assistant: EnergyAssistant = Depends(get_assistant),
 ) -> ChatResponse:
     """
     Stateless single-turn analysis for a specific site.
     Each call creates a fresh session.
     """
-    prompt = (
-        f"Analyse site {site_id} for the last {body.hours} hours. "
-        f"{body.question}"
-    )
+    prompt = f"Analyse site {site_id} for the last {body.hours} hours. {body.question}"
     session = assistant.new_session(metadata={"site_id": site_id, "type": "analysis"})
     response_text = assistant.chat(prompt, session_id=session.session_id)
 
@@ -193,9 +197,10 @@ def analyze_site(
 
 # ── Report generation ─────────────────────────────────────────────────────────
 
+
 @ai_router.post("/report", response_model=ChatResponse)
 def generate_report(
-    body:      ReportRequest,
+    body: ReportRequest,
     assistant: EnergyAssistant = Depends(get_assistant),
 ) -> ChatResponse:
     """
@@ -203,11 +208,11 @@ def generate_report(
     The assistant fetches live data and synthesises a comprehensive report.
     """
     focus_prompts = {
-        "general":   "Provide a comprehensive energy performance summary.",
+        "general": "Provide a comprehensive energy performance summary.",
         "anomalies": "Focus on anomaly detection, root causes, and recommended actions.",
-        "esg":       "Focus on Scope 2 emissions, GRI 302-1 compliance, and carbon reduction opportunities.",
-        "cost":      "Focus on cost optimisation, tariff analysis, and potential savings.",
-        "forecast":  "Focus on demand forecasting, peak planning, and capacity recommendations.",
+        "esg": "Focus on Scope 2 emissions, GRI 302-1 compliance, and carbon reduction opportunities.",
+        "cost": "Focus on cost optimisation, tariff analysis, and potential savings.",
+        "forecast": "Focus on demand forecasting, peak planning, and capacity recommendations.",
     }
     focus_text = focus_prompts.get(body.focus, focus_prompts["general"])
 
@@ -220,9 +225,9 @@ def generate_report(
         f"with findings, anomalies, ESG metrics, and actionable recommendations."
     )
 
-    session = assistant.new_session(metadata={
-        "type": "report", "sites": body.site_ids, "focus": body.focus
-    })
+    session = assistant.new_session(
+        metadata={"type": "report", "sites": body.site_ids, "focus": body.focus}
+    )
     response_text = assistant.chat(prompt, session_id=session.session_id)
 
     return ChatResponse(

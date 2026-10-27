@@ -24,7 +24,6 @@ This gives operators credible intervals for planning decisions.
 
 from __future__ import annotations
 
-import math
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -42,11 +41,12 @@ log = get_logger(__name__)
 @dataclass
 class ScenarioParameter:
     """A single variable override in a what-if scenario."""
-    variable:     str
-    value:        float
-    start_hour:   int   = 0      # Hour offset from simulation start
-    end_hour:     int   = 8760   # Hour offset from simulation start (default: full year)
-    description:  str  = ""
+
+    variable: str
+    value: float
+    start_hour: int = 0  # Hour offset from simulation start
+    end_hour: int = 8760  # Hour offset from simulation start (default: full year)
+    description: str = ""
 
 
 @dataclass
@@ -55,13 +55,14 @@ class Scenario:
     A named what-if scenario: a set of parameter overrides
     applied to the digital twin simulation.
     """
-    name:          str
-    description:   str  = ""
-    parameters:    list[ScenarioParameter] = field(default_factory=list)
-    capex_gbp:     float = 0.0   # One-time cost to implement this scenario
+
+    name: str
+    description: str = ""
+    parameters: list[ScenarioParameter] = field(default_factory=list)
+    capex_gbp: float = 0.0  # One-time cost to implement this scenario
     opex_delta_gbp: float = 0.0  # Annual operating cost change
 
-    def add_parameter(self, variable: str, value: float, **kwargs) -> "Scenario":
+    def add_parameter(self, variable: str, value: float, **kwargs) -> Scenario:
         self.parameters.append(ScenarioParameter(variable=variable, value=value, **kwargs))
         return self
 
@@ -69,44 +70,45 @@ class Scenario:
 @dataclass
 class TwinSimulationResult:
     """Results of running the digital twin for one scenario."""
-    scenario_name:    str
+
+    scenario_name: str
     simulation_hours: int
 
     # Hourly time-series (mean across Monte Carlo runs)
-    timestamps:       list[str]
-    kwh_mean:         list[float]
-    kwh_p10:          list[float]
-    kwh_p90:          list[float]
+    timestamps: list[str]
+    kwh_mean: list[float]
+    kwh_p10: list[float]
+    kwh_p90: list[float]
 
     # Aggregates
-    total_kwh:        float
-    peak_kw:          float
-    avg_kw:           float
-    total_co2_kg:     float
-    total_cost:       float
-    currency:         str   = "GBP"
+    total_kwh: float
+    peak_kw: float
+    avg_kw: float
+    total_co2_kg: float
+    total_cost: float
+    currency: str = "GBP"
 
     # Monte Carlo metadata
-    n_simulations:    int   = 100
-    confidence:       str   = "medium"
+    n_simulations: int = 100
+    confidence: str = "medium"
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "scenario":        self.scenario_name,
+            "scenario": self.scenario_name,
             "simulation_hours": self.simulation_hours,
-            "total_kwh":       round(self.total_kwh, 1),
-            "peak_kw":         round(self.peak_kw, 1),
-            "avg_kw":          round(self.avg_kw, 2),
-            "total_co2_kg":    round(self.total_co2_kg, 1),
-            "total_cost":      round(self.total_cost, 2),
-            "currency":        self.currency,
-            "n_simulations":   self.n_simulations,
-            "confidence":      self.confidence,
-            "hourly_preview":  {
+            "total_kwh": round(self.total_kwh, 1),
+            "peak_kw": round(self.peak_kw, 1),
+            "avg_kw": round(self.avg_kw, 2),
+            "total_co2_kg": round(self.total_co2_kg, 1),
+            "total_cost": round(self.total_cost, 2),
+            "currency": self.currency,
+            "n_simulations": self.n_simulations,
+            "confidence": self.confidence,
+            "hourly_preview": {
                 "timestamps": self.timestamps[:48],
-                "kwh_mean":   [round(v, 2) for v in self.kwh_mean[:48]],
-                "kwh_p10":    [round(v, 2) for v in self.kwh_p10[:48]],
-                "kwh_p90":    [round(v, 2) for v in self.kwh_p90[:48]],
+                "kwh_mean": [round(v, 2) for v in self.kwh_mean[:48]],
+                "kwh_p10": [round(v, 2) for v in self.kwh_p10[:48]],
+                "kwh_p90": [round(v, 2) for v in self.kwh_p90[:48]],
             },
         }
 
@@ -114,8 +116,9 @@ class TwinSimulationResult:
 @dataclass
 class ScenarioComparison:
     """Side-by-side comparison of multiple scenarios against a baseline."""
-    baseline:     TwinSimulationResult
-    scenarios:    list[TwinSimulationResult]
+
+    baseline: TwinSimulationResult
+    scenarios: list[TwinSimulationResult]
 
     @property
     def best_scenario(self) -> TwinSimulationResult | None:
@@ -128,26 +131,28 @@ class ScenarioComparison:
         base_kwh = self.baseline.total_kwh
         ranked = []
         for s in self.scenarios:
-            delta_kwh  = s.total_kwh - base_kwh
+            delta_kwh = s.total_kwh - base_kwh
             delta_cost = s.total_cost - self.baseline.total_cost
-            ranked.append({
-                "scenario":        s.scenario_name,
-                "total_kwh":       round(s.total_kwh, 1),
-                "delta_kwh":       round(delta_kwh, 1),
-                "delta_pct":       round(delta_kwh / (abs(base_kwh) + 1e-8) * 100, 1),
-                "delta_cost":      round(delta_cost, 2),
-                "currency":        s.currency,
-                "total_co2_kg":    round(s.total_co2_kg, 1),
-                "confidence":      s.confidence,
-            })
+            ranked.append(
+                {
+                    "scenario": s.scenario_name,
+                    "total_kwh": round(s.total_kwh, 1),
+                    "delta_kwh": round(delta_kwh, 1),
+                    "delta_pct": round(delta_kwh / (abs(base_kwh) + 1e-8) * 100, 1),
+                    "delta_cost": round(delta_cost, 2),
+                    "currency": s.currency,
+                    "total_co2_kg": round(s.total_co2_kg, 1),
+                    "confidence": s.confidence,
+                }
+            )
         return sorted(ranked, key=lambda x: x["delta_kwh"])
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "baseline":        self.baseline.to_dict(),
-            "scenarios":       [s.to_dict() for s in self.scenarios],
+            "baseline": self.baseline.to_dict(),
+            "scenarios": [s.to_dict() for s in self.scenarios],
             "ranked_by_saving": self.ranked_by_saving(),
-            "best_scenario":   self.best_scenario.scenario_name if self.best_scenario else None,
+            "best_scenario": self.best_scenario.scenario_name if self.best_scenario else None,
         }
 
 
@@ -170,24 +175,24 @@ class EnergyDigitalTwin:
 
     def __init__(
         self,
-        graph:             CausalGraph,
-        df:                pd.DataFrame,
-        carbon_intensity:  float = 0.207,
-        tariff_per_kwh:    float = 0.28,
-        currency:          str   = "GBP",
-        n_simulations:     int   = 100,
-        seed:              int   = 42,
+        graph: CausalGraph,
+        df: pd.DataFrame,
+        carbon_intensity: float = 0.207,
+        tariff_per_kwh: float = 0.28,
+        currency: str = "GBP",
+        n_simulations: int = 100,
+        seed: int = 42,
     ) -> None:
-        self._graph   = graph
-        self._ci      = carbon_intensity
-        self._tariff  = tariff_per_kwh
+        self._graph = graph
+        self._ci = carbon_intensity
+        self._tariff = tariff_per_kwh
         self._currency = currency
-        self._n_sims  = n_simulations
-        self._rng     = random.Random(seed)
-        self._np_rng  = np.random.default_rng(seed)
+        self._n_sims = n_simulations
+        self._rng = random.Random(seed)
+        self._np_rng = np.random.default_rng(seed)
 
         # Calibrate from historical data
-        self._params  = self._calibrate(df)
+        self._params = self._calibrate(df)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -198,7 +203,7 @@ class EnergyDigitalTwin:
     def run_scenario(
         self,
         scenario: Scenario,
-        hours:    int = 8760,
+        hours: int = 8760,
     ) -> TwinSimulationResult:
         """Simulate a specific what-if scenario."""
         return self._simulate(scenario, hours)
@@ -206,19 +211,24 @@ class EnergyDigitalTwin:
     def compare_scenarios(
         self,
         scenarios: list[Scenario],
-        hours:     int = 8760,
+        hours: int = 8760,
     ) -> ScenarioComparison:
         """Run baseline + all scenarios and return a side-by-side comparison."""
-        log.info("digital_twin.compare_start",
-                 site=self._graph.site_id,
-                 scenarios=len(scenarios), hours=hours)
+        log.info(
+            "digital_twin.compare_start",
+            site=self._graph.site_id,
+            scenarios=len(scenarios),
+            hours=hours,
+        )
 
-        baseline   = self.run_baseline(hours)
-        results    = [self.run_scenario(s, hours) for s in scenarios]
+        baseline = self.run_baseline(hours)
+        results = [self.run_scenario(s, hours) for s in scenarios]
 
-        log.info("digital_twin.compare_complete",
-                 site=self._graph.site_id,
-                 best=min(results, key=lambda r: r.total_kwh).scenario_name)
+        log.info(
+            "digital_twin.compare_complete",
+            site=self._graph.site_id,
+            best=min(results, key=lambda r: r.total_kwh).scenario_name,
+        )
 
         return ScenarioComparison(baseline=baseline, scenarios=results)
 
@@ -231,8 +241,11 @@ class EnergyDigitalTwin:
             name=f"BESS {capacity_kwh:.0f}kWh / {charge_rate_kw:.0f}kW",
             description=f"Install {capacity_kwh:.0f}kWh BESS for peak shaving",
             capex_gbp=capacity_kwh * 350,
-        ).add_parameter("kwh_roll_max_24h", charge_rate_kw * 0.8,
-                        description="Peak demand capped by BESS discharge")
+        ).add_parameter(
+            "kwh_roll_max_24h",
+            charge_rate_kw * 0.8,
+            description="Peak demand capped by BESS discharge",
+        )
 
     @staticmethod
     def ev_fleet_scenario(vehicles: int, kw_per_vehicle: float = 22.0) -> Scenario:
@@ -242,9 +255,9 @@ class EnergyDigitalTwin:
             name=f"EV fleet {vehicles}× {kw_per_vehicle:.0f}kW managed",
             description=f"{vehicles} EVs charged off-peak (midnight–6am)",
             capex_gbp=vehicles * 8_000,
-        ).add_parameter("kwh", total_kw,
-                        start_hour=0, end_hour=6,
-                        description="EV charging load added off-peak")
+        ).add_parameter(
+            "kwh", total_kw, start_hour=0, end_hour=6, description="EV charging load added off-peak"
+        )
 
     @staticmethod
     def solar_scenario(capacity_kwp: float, yield_kwh_per_kwp: float = 900) -> Scenario:
@@ -255,22 +268,37 @@ class EnergyDigitalTwin:
             name=f"Solar PV {capacity_kwp:.0f}kWp",
             description=f"{capacity_kwp:.0f}kWp rooftop solar, {yield_kwh_per_kwp:.0f}kWh/kWp/yr",
             capex_gbp=capacity_kwp * 1_200,
-        ).add_parameter("kwh", -hourly_gen,
-                        start_hour=0, end_hour=8760,
-                        description="Solar generation offsets import")
+        ).add_parameter(
+            "kwh",
+            -hourly_gen,
+            start_hour=0,
+            end_hour=8760,
+            description="Solar generation offsets import",
+        )
 
     @staticmethod
     def night_shift_scenario() -> Scenario:
         """Move production from day to night shift."""
-        return Scenario(
-            name="Night shift migration",
-            description="Shift core production to 22:00–06:00",
-        ).add_parameter("is_business_hour", 0.0,
-                        start_hour=7, end_hour=19,
-                        description="Daytime production reduced"
-                       ).add_parameter("is_business_hour", 1.0,
-                        start_hour=22, end_hour=30,
-                        description="Night-time production active")
+        return (
+            Scenario(
+                name="Night shift migration",
+                description="Shift core production to 22:00–06:00",
+            )
+            .add_parameter(
+                "is_business_hour",
+                0.0,
+                start_hour=7,
+                end_hour=19,
+                description="Daytime production reduced",
+            )
+            .add_parameter(
+                "is_business_hour",
+                1.0,
+                start_hour=22,
+                end_hour=30,
+                description="Night-time production active",
+            )
+        )
 
     # ── Monte Carlo simulation ────────────────────────────────────────────────
 
@@ -282,25 +310,24 @@ class EnergyDigitalTwin:
             run = self._single_run(scenario, hours)
             all_runs.append(run)
 
-        stacked = np.array(all_runs)   # (n_sims, hours)
+        stacked = np.array(all_runs)  # (n_sims, hours)
         mean_kwh = stacked.mean(axis=0)
-        p10_kwh  = np.percentile(stacked, 10, axis=0)
-        p90_kwh  = np.percentile(stacked, 90, axis=0)
+        p10_kwh = np.percentile(stacked, 10, axis=0)
+        p90_kwh = np.percentile(stacked, 90, axis=0)
 
         start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-        timestamps = [
-            (start + timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M")
-            for h in range(hours)
-        ]
+        timestamps = [(start + timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M") for h in range(hours)]
 
-        total_kwh  = float(mean_kwh.sum())
-        total_co2  = total_kwh * self._ci
+        total_kwh = float(mean_kwh.sum())
+        total_co2 = total_kwh * self._ci
         total_cost = total_kwh * self._tariff
 
         confidence = (
-            "high"   if self._n_sims >= 200 and len(self._params) > 5 else
-            "medium" if self._n_sims >= 100 else
-            "low"
+            "high"
+            if self._n_sims >= 200 and len(self._params) > 5
+            else "medium"
+            if self._n_sims >= 100
+            else "low"
         )
 
         return TwinSimulationResult(
@@ -352,9 +379,7 @@ class EnergyDigitalTwin:
         return result
 
     @staticmethod
-    def _apply_scenario(
-        scenario: Scenario, hour: int, base: float
-    ) -> float | None:
+    def _apply_scenario(scenario: Scenario, hour: int, base: float) -> float | None:
         """Return modified base if any scenario parameter applies at this hour."""
         for param in scenario.parameters:
             if param.start_hour <= hour < param.end_hour:
@@ -363,9 +388,9 @@ class EnergyDigitalTwin:
                     return base + param.value
                 elif param.variable == "is_business_hour":
                     if param.value == 0.0:
-                        return base * 0.35   # Reduced to standby
+                        return base * 0.35  # Reduced to standby
                     else:
-                        return base * 1.40   # Production-level load
+                        return base * 1.40  # Production-level load
         return None
 
     def _calibrate(self, df: pd.DataFrame) -> dict[str, Any]:
@@ -374,16 +399,16 @@ class EnergyDigitalTwin:
             return {
                 "hourly_profile": [100.0] * 24,
                 "weekend_factor": 0.60,
-                "ar_coef":        0.30,
-                "noise_std":      10.0,
-                "mean_kwh":       100.0,
+                "ar_coef": 0.30,
+                "noise_std": 10.0,
+                "mean_kwh": 100.0,
             }
 
         df = df.copy()
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-            df["hour"]      = df["timestamp"].dt.hour
-            df["dow"]       = df["timestamp"].dt.weekday
+            df["hour"] = df["timestamp"].dt.hour
+            df["dow"] = df["timestamp"].dt.weekday
 
         kwh = df["kwh"]
 
@@ -398,10 +423,7 @@ class EnergyDigitalTwin:
         if "dow" in df.columns:
             weekday_mean = float(df[df["dow"] < 5]["kwh"].mean())
             weekend_mean = float(df[df["dow"] >= 5]["kwh"].mean())
-            weekend_factor = (
-                weekend_mean / (weekday_mean + 1e-8)
-                if weekday_mean > 0 else 0.6
-            )
+            weekend_factor = weekend_mean / (weekday_mean + 1e-8) if weekday_mean > 0 else 0.6
         else:
             weekend_factor = 0.60
 
@@ -416,7 +438,7 @@ class EnergyDigitalTwin:
         return {
             "hourly_profile": hourly_profile,
             "weekend_factor": min(1.0, max(0.1, weekend_factor)),
-            "ar_coef":        ar_coef,
-            "noise_std":      max(0.1, float(kwh.std()) * 0.15),
-            "mean_kwh":       float(kwh.mean()),
+            "ar_coef": ar_coef,
+            "noise_std": max(0.1, float(kwh.std()) * 0.15),
+            "mean_kwh": float(kwh.mean()),
         }

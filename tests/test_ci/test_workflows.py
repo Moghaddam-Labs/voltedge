@@ -10,10 +10,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-
 WORKFLOWS_DIR = Path(__file__).parent.parent.parent / ".github" / "workflows"
-CI_YAML  = WORKFLOWS_DIR / "ci.yml"
-CD_YAML  = WORKFLOWS_DIR / "cd.yml"
+CI_YAML = WORKFLOWS_DIR / "ci.yml"
+CD_YAML = WORKFLOWS_DIR / "cd.yml"
 
 
 @pytest.fixture(scope="module")
@@ -27,6 +26,7 @@ def cd():
 
 
 # ── CI file structure ─────────────────────────────────────────────────────────
+
 
 def test_ci_file_exists():
     assert CI_YAML.exists()
@@ -93,8 +93,11 @@ def test_ci_has_security_job(ci):
 
 def test_ci_security_uses_bandit(ci):
     steps = ci["jobs"]["security"]["steps"]
-    bandit_steps = [s for s in steps if "bandit" in str(s.get("run", "")).lower()
-                    or "bandit" in str(s.get("name", "")).lower()]
+    bandit_steps = [
+        s
+        for s in steps
+        if "bandit" in str(s.get("run", "")).lower() or "bandit" in str(s.get("name", "")).lower()
+    ]
     assert len(bandit_steps) > 0
 
 
@@ -115,6 +118,7 @@ def test_ci_lstm_job_only_runs_on_main_push(ci):
 
 
 # ── CD file structure ─────────────────────────────────────────────────────────
+
 
 def test_cd_file_exists():
     assert CD_YAML.exists()

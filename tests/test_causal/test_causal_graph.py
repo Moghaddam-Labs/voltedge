@@ -1,12 +1,16 @@
 """Tests for the causal graph engine."""
+
 from __future__ import annotations
+
 import asyncio
-import pytest
-import pandas as pd
+
 import networkx as nx
+import pandas as pd
+import pytest
 
 from voltedge.causal.graph import (
-    CausalEdge, CausalGraph, CausalGraphBuilder, DEFAULT_ALPHA,
+    CausalEdge,
+    CausalGraphBuilder,
 )
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
@@ -29,6 +33,7 @@ def causal_graph(processed_df):
 
 # ── CausalEdge ────────────────────────────────────────────────────────────────
 
+
 def test_edge_significance():
     e = CausalEdge("A", "B", strength=0.5, p_value=0.01)
     assert e.is_significant
@@ -40,14 +45,16 @@ def test_edge_not_significant():
 
 
 def test_edge_to_dict_keys():
-    e = CausalEdge("temp", "kwh", strength=0.6, p_value=0.001,
-                   mechanism="HVAC driven by temperature")
+    e = CausalEdge(
+        "temp", "kwh", strength=0.6, p_value=0.001, mechanism="HVAC driven by temperature"
+    )
     d = e.to_dict()
     for k in ("cause", "effect", "strength", "p_value", "mechanism", "significant"):
         assert k in d
 
 
 # ── CausalGraph ───────────────────────────────────────────────────────────────
+
 
 def test_graph_has_dag(causal_graph):
     assert isinstance(causal_graph.dag, nx.DiGraph)
@@ -63,7 +70,7 @@ def test_graph_has_variables(causal_graph):
 
 
 def test_graph_has_edges(causal_graph):
-    assert len(causal_graph.edges) >= 0   # May be 0 for sparse data
+    assert len(causal_graph.edges) >= 0  # May be 0 for sparse data
 
 
 def test_graph_site_id(causal_graph):
@@ -113,6 +120,7 @@ def test_graph_learned_at_set(causal_graph):
 
 # ── Builder ───────────────────────────────────────────────────────────────────
 
+
 def test_builder_raises_on_insufficient_data():
     builder = CausalGraphBuilder(min_samples=1000)
     tiny_df = pd.DataFrame({"kwh": [1.0, 2.0, 3.0]})
@@ -129,6 +137,7 @@ def test_builder_select_variables_filters_numeric(processed_df):
 
 def test_fisher_z_test_independent():
     import numpy as np
+
     data = np.random.default_rng(0).standard_normal((200, 3))
     p = CausalGraphBuilder._fisher_z_test(data, 0, 1, [], 200)
     assert 0.0 <= p <= 1.0
@@ -136,11 +145,12 @@ def test_fisher_z_test_independent():
 
 def test_fisher_z_test_correlated():
     import numpy as np
+
     rng = np.random.default_rng(1)
     x = rng.standard_normal(200)
     data = np.column_stack([x, x * 0.9 + rng.standard_normal(200) * 0.1])
     p = CausalGraphBuilder._fisher_z_test(data, 0, 1, [], 200)
-    assert p < 0.05   # Should detect strong dependence
+    assert p < 0.05  # Should detect strong dependence
 
 
 def test_domain_priors_have_known_variables():

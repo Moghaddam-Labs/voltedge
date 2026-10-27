@@ -8,12 +8,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from voltedge.core.multiregion import (
-    AWSRegion, DataResidencyZone, MultiRegionRouter, RegionConfig,
+    AWSRegion,
+    DataResidencyZone,
+    MultiRegionRouter,
+    RegionConfig,
     check_all_regions,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _eu_config(primary: bool = True) -> RegionConfig:
     return RegionConfig(
@@ -53,6 +56,7 @@ def three_region_router():
 
 # ── RegionConfig ──────────────────────────────────────────────────────────────
 
+
 def test_region_config_region_code():
     cfg = _eu_config()
     assert cfg.region_code == "eu_west_1"
@@ -65,6 +69,7 @@ def test_region_config_us_code():
 
 # ── Router construction ───────────────────────────────────────────────────────
 
+
 def test_router_requires_at_least_one_config():
     with pytest.raises(ValueError):
         MultiRegionRouter([])
@@ -72,10 +77,14 @@ def test_router_requires_at_least_one_config():
 
 def test_router_rejects_multiple_primaries():
     with pytest.raises(ValueError, match="primary"):
-        MultiRegionRouter([_eu_config(primary=True), RegionConfig(
-            region=AWSRegion.US_EAST_1,
-            s3_bucket="b", db_url="u", is_primary=True
-        )])
+        MultiRegionRouter(
+            [
+                _eu_config(primary=True),
+                RegionConfig(
+                    region=AWSRegion.US_EAST_1, s3_bucket="b", db_url="u", is_primary=True
+                ),
+            ]
+        )
 
 
 def test_router_primary_returns_primary_region(three_region_router):
@@ -88,6 +97,7 @@ def test_router_single_region_defaults_to_primary():
 
 
 # ── Routing ───────────────────────────────────────────────────────────────────
+
 
 def test_explicit_site_mapping_wins(three_region_router):
     three_region_router.add_site_mapping("SPECIAL-SITE", AWSRegion.US_EAST_1)
@@ -161,6 +171,7 @@ def test_add_unknown_region_raises():
 
 # ── All regions ───────────────────────────────────────────────────────────────
 
+
 def test_all_regions_returns_all(three_region_router):
     regions = three_region_router.all_regions()
     assert len(regions) == 3
@@ -175,6 +186,7 @@ def test_region_summary_structure(three_region_router):
 
 
 # ── Health checker ────────────────────────────────────────────────────────────
+
 
 def test_check_all_regions_with_mock():
     configs = [_eu_config(), _us_config(), _apac_config()]
@@ -206,6 +218,7 @@ def test_check_all_regions_handles_failure():
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
         import httpx
+
         mock_client.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
         mock_cls.return_value = mock_client
 
@@ -217,8 +230,9 @@ def test_check_all_regions_handles_failure():
 def test_check_region_with_empty_endpoint():
     cfg = RegionConfig(
         region=AWSRegion.EU_WEST_1,
-        s3_bucket="b", db_url="u",
-        api_endpoint="",   # No endpoint configured
+        s3_bucket="b",
+        db_url="u",
+        api_endpoint="",  # No endpoint configured
     )
     results = asyncio.run(check_all_regions([cfg]))
     assert results["eu-west-1"] is False
@@ -226,38 +240,49 @@ def test_check_region_with_empty_endpoint():
 
 # ── Deploy artefact validation ────────────────────────────────────────────────
 
+
 def test_k8s_manifest_exists():
     from pathlib import Path
+
     manifest = Path(__file__).parent.parent.parent / "deploy" / "k8s" / "deployment.yaml"
     assert manifest.exists()
 
 
 def test_terraform_main_exists():
     from pathlib import Path
+
     tf = Path(__file__).parent.parent.parent / "deploy" / "terraform" / "main.tf"
     assert tf.exists()
 
 
 def test_deploy_script_exists():
     from pathlib import Path
+
     script = Path(__file__).parent.parent.parent / "deploy" / "scripts" / "deploy_multiregion.sh"
     assert script.exists()
 
 
 def test_k8s_manifest_has_hpa():
     from pathlib import Path
-    content = (Path(__file__).parent.parent.parent / "deploy" / "k8s" / "deployment.yaml").read_text()
+
+    content = (
+        Path(__file__).parent.parent.parent / "deploy" / "k8s" / "deployment.yaml"
+    ).read_text()
     assert "HorizontalPodAutoscaler" in content
 
 
 def test_k8s_manifest_has_liveness_probe():
     from pathlib import Path
-    content = (Path(__file__).parent.parent.parent / "deploy" / "k8s" / "deployment.yaml").read_text()
+
+    content = (
+        Path(__file__).parent.parent.parent / "deploy" / "k8s" / "deployment.yaml"
+    ).read_text()
     assert "livenessProbe" in content
 
 
 def test_terraform_has_three_regions():
     from pathlib import Path
+
     content = (Path(__file__).parent.parent.parent / "deploy" / "terraform" / "main.tf").read_text()
     assert "eu_west_1" in content
     assert "us_east_1" in content
@@ -266,5 +291,6 @@ def test_terraform_has_three_regions():
 
 def test_terraform_has_s3_crr():
     from pathlib import Path
+
     content = (Path(__file__).parent.parent.parent / "deploy" / "terraform" / "main.tf").read_text()
     assert "replication_configuration" in content

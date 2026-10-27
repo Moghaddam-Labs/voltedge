@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from voltedge.oem.branding import (
-    BrandingBase, BrandingProfile, BrandingService,
-    BUILTIN_TENANTS, TenantBranding,
+    BUILTIN_TENANTS,
+    BrandingBase,
+    BrandingProfile,
+    BrandingService,
+    TenantBranding,
 )
 
 
@@ -31,6 +33,7 @@ def svc(db):
 
 
 # ── Seed ──────────────────────────────────────────────────────────────────────
+
 
 def test_seed_creates_builtin_tenants(svc, db):
     tenants = db.query(TenantBranding).all()
@@ -71,6 +74,7 @@ def test_shell_lstm_enabled(svc):
 
 
 # ── BrandingProfile ───────────────────────────────────────────────────────────
+
 
 def test_profile_from_db(svc):
     shell = svc.get("shell-energy")
@@ -125,6 +129,7 @@ def test_profile_default_no_carbon_override():
 
 # ── Resolution ────────────────────────────────────────────────────────────────
 
+
 def test_resolve_by_tenant_id(svc):
     profile = svc.resolve(tenant_id="shell-energy")
     assert profile.product_name == "Shell EnergyIQ"
@@ -156,6 +161,7 @@ def test_resolve_tenant_id_takes_priority_over_host(svc):
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
+
 
 def test_create_tenant(svc):
     t = svc.create(
@@ -211,8 +217,7 @@ def test_deactivated_tenant_not_resolved(svc):
 
 
 def test_feature_flags_json_roundtrip(svc):
-    t = svc.create("roundtrip-co", "RT Co",
-                   feature_flags={"x": True, "y": False, "z": True})
+    t = svc.create("roundtrip-co", "RT Co", feature_flags={"x": True, "y": False, "z": True})
     row = svc.get("roundtrip-co")
     flags = row.feature_flags
     assert flags["x"] is True

@@ -41,8 +41,8 @@ def create_app() -> FastAPI:
     )
 
     from voltedge.api.ai_routes import ai_router
-    from voltedge.api.ws_routes import ws_router
     from voltedge.api.causal_routes import causal_router
+    from voltedge.api.ws_routes import ws_router
 
     app.include_router(auth_router)
     app.include_router(health_router)

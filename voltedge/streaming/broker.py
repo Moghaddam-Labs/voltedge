@@ -37,11 +37,9 @@ Usage (SQS):
 from __future__ import annotations
 
 import asyncio
-import json
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from voltedge.streaming.events import EnergyEvent
 from voltedge.utils.logger import get_logger
@@ -50,6 +48,7 @@ log = get_logger(__name__)
 
 
 # ── Base interface ────────────────────────────────────────────────────────────
+
 
 class BaseBroker(ABC):
     """
@@ -77,6 +76,7 @@ class BaseBroker(ABC):
 
 # ── In-memory broker ──────────────────────────────────────────────────────────
 
+
 class InMemoryBroker(BaseBroker):
     """
     asyncio.Queue-backed broker for development and testing.
@@ -91,17 +91,17 @@ class InMemoryBroker(BaseBroker):
     def __init__(self, max_queue_depth: int = 1000) -> None:
         self._max_depth = max_queue_depth
         # {topic: [queue_per_subscriber]}
-        self._queues:    dict[str, list[asyncio.Queue]] = defaultdict(list)
-        self._published: dict[str, int]                 = defaultdict(int)
-        self._dropped:   dict[str, int]                 = defaultdict(int)
-        self._closed:    bool                           = False
+        self._queues: dict[str, list[asyncio.Queue]] = defaultdict(list)
+        self._published: dict[str, int] = defaultdict(int)
+        self._dropped: dict[str, int] = defaultdict(int)
+        self._closed: bool = False
 
     async def publish(self, topic: str, event: EnergyEvent) -> None:
         if self._closed:
             return
         queues = self._queues[topic]
         if not queues:
-            return          # No subscribers — drop silently (fire-and-forget)
+            return  # No subscribers — drop silently (fire-and-forget)
 
         self._published[topic] += 1
         for q in queues:
@@ -110,8 +110,7 @@ class InMemoryBroker(BaseBroker):
                 try:
                     q.get_nowait()
                     self._dropped[topic] += 1
-                    log.warning("broker.queue_full_drop", topic=topic,
-                                depth=self._max_depth)
+                    log.warning("broker.queue_full_drop", topic=topic, depth=self._max_depth)
                 except asyncio.QueueEmpty:
                     pass
             await q.put(event)
@@ -119,8 +118,9 @@ class InMemoryBroker(BaseBroker):
     async def subscribe(self, topic: str) -> AsyncIterator[EnergyEvent]:
         q: asyncio.Queue = asyncio.Queue(maxsize=self._max_queue_depth_safe)
         self._queues[topic].append(q)
-        log.debug("broker.subscriber_added", topic=topic,
-                  total_subscribers=len(self._queues[topic]))
+        log.debug(
+            "broker.subscriber_added", topic=topic, total_subscribers=len(self._queues[topic])
+        )
         try:
             while not self._closed:
                 try:
@@ -128,7 +128,7 @@ class InMemoryBroker(BaseBroker):
                     yield event
                     q.task_done()
                 except asyncio.TimeoutError:
-                    continue   # Check _closed flag on next iteration
+                    continue  # Check _closed flag on next iteration
         finally:
             if q in self._queues[topic]:
                 self._queues[topic].remove(q)
@@ -140,9 +140,9 @@ class InMemoryBroker(BaseBroker):
 
     def metrics(self) -> dict:
         return {
-            "topics":    list(self._queues.keys()),
+            "topics": list(self._queues.keys()),
             "published": dict(self._published),
-            "dropped":   dict(self._dropped),
+            "dropped": dict(self._dropped),
             "subscribers": {t: len(qs) for t, qs in self._queues.items()},
         }
 
@@ -163,6 +163,7 @@ class InMemoryBroker(BaseBroker):
 
 # ── SQS broker (production) ───────────────────────────────────────────────────
 
+
 class SQSBroker(BaseBroker):
     """
     AWS SQS-backed durable event broker for production.
@@ -181,33 +182,36 @@ class SQSBroker(BaseBroker):
     def __init__(
         self,
         queue_url: str,
-        region:    str   = "eu-west-1",
+        region: str = "eu-west-1",
         max_messages_per_poll: int = 10,
-        visibility_timeout:    int = 30,
-        aws_access_key_id:     str | None = None,
+        visibility_timeout: int = 30,
+        aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
     ) -> None:
         self._queue_url = queue_url
-        self._region    = region
-        self._max_msgs  = max_messages_per_poll
+        self._region = region
+        self._max_msgs = max_messages_per_poll
         self._vis_timeout = visibility_timeout
-        self._aws_key   = aws_access_key_id
+        self._aws_key = aws_access_key_id
         self._aws_secret = aws_secret_access_key
-        self._closed    = False
-        self._client    = None
+        self._closed = False
+        self._client = None
 
     async def publish(self, topic: str, event: EnergyEvent) -> None:
         client = self._get_client()
         loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, lambda: client.send_message(
-            QueueUrl=self._queue_url,
-            MessageBody=event.to_json(),
-            MessageAttributes={
-                "topic":    {"DataType": "String", "StringValue": topic},
-                "site_id":  {"DataType": "String", "StringValue": event.site_id},
-                "event_type": {"DataType": "String", "StringValue": event.event_type.value},
-            },
-        ))
+        await loop.run_in_executor(
+            None,
+            lambda: client.send_message(
+                QueueUrl=self._queue_url,
+                MessageBody=event.to_json(),
+                MessageAttributes={
+                    "topic": {"DataType": "String", "StringValue": topic},
+                    "site_id": {"DataType": "String", "StringValue": event.site_id},
+                    "event_type": {"DataType": "String", "StringValue": event.event_type.value},
+                },
+            ),
+        )
         log.debug("sqs.published", topic=topic, event_id=event.event_id)
 
     async def subscribe(self, topic: str) -> AsyncIterator[EnergyEvent]:
@@ -215,27 +219,33 @@ class SQSBroker(BaseBroker):
         loop = asyncio.get_event_loop()
 
         while not self._closed:
-            response = await loop.run_in_executor(None, lambda: client.receive_message(
-                QueueUrl=self._queue_url,
-                MaxNumberOfMessages=self._max_msgs,
-                WaitTimeSeconds=20,           # Long-poll
-                VisibilityTimeout=self._vis_timeout,
-                MessageAttributeNames=["topic", "site_id", "event_type"],
-            ))
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.receive_message(
+                    QueueUrl=self._queue_url,
+                    MaxNumberOfMessages=self._max_msgs,
+                    WaitTimeSeconds=20,  # Long-poll
+                    VisibilityTimeout=self._vis_timeout,
+                    MessageAttributeNames=["topic", "site_id", "event_type"],
+                ),
+            )
 
             for msg in response.get("Messages", []):
                 attrs = msg.get("MessageAttributes", {})
                 msg_topic = attrs.get("topic", {}).get("StringValue", "")
 
                 if topic and msg_topic and msg_topic != topic:
-                    continue   # Wrong topic — leave in queue
+                    continue  # Wrong topic — leave in queue
 
                 try:
                     event = EnergyEvent.from_json(msg["Body"])
                     yield event
                     # Acknowledge: delete from SQS
-                    await loop.run_in_executor(None, lambda r=msg["ReceiptHandle"]:
-                        client.delete_message(QueueUrl=self._queue_url, ReceiptHandle=r)
+                    await loop.run_in_executor(
+                        None,
+                        lambda r=msg["ReceiptHandle"]: client.delete_message(
+                            QueueUrl=self._queue_url, ReceiptHandle=r
+                        ),
                     )
                 except Exception as exc:
                     log.error("sqs.parse_error", error=str(exc), body=msg["Body"][:200])
@@ -247,9 +257,10 @@ class SQSBroker(BaseBroker):
     def _get_client(self):
         if self._client is None:
             import boto3
+
             kwargs: dict = {"region_name": self._region}
             if self._aws_key:
-                kwargs["aws_access_key_id"]     = self._aws_key
+                kwargs["aws_access_key_id"] = self._aws_key
                 kwargs["aws_secret_access_key"] = self._aws_secret
             self._client = boto3.client("sqs", **kwargs)
         return self._client

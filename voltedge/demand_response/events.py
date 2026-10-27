@@ -34,26 +34,26 @@ from typing import Any
 
 
 class DREventType(str, Enum):
-    EMERGENCY    = "emergency"
-    ECONOMIC     = "economic"
-    RELIABILITY  = "reliability"
-    TEST         = "test"
-    BASELINE     = "baseline"
+    EMERGENCY = "emergency"
+    ECONOMIC = "economic"
+    RELIABILITY = "reliability"
+    TEST = "test"
+    BASELINE = "baseline"
 
 
 class DREventStatus(str, Enum):
-    UPCOMING    = "upcoming"     # Notified, not yet started
-    ACTIVE      = "active"       # Event window is live
-    COMPLETED   = "completed"    # Event window closed
-    CANCELLED   = "cancelled"    # Event cancelled before start
+    UPCOMING = "upcoming"  # Notified, not yet started
+    ACTIVE = "active"  # Event window is live
+    COMPLETED = "completed"  # Event window closed
+    CANCELLED = "cancelled"  # Event cancelled before start
 
 
 class SiteResponseStatus(str, Enum):
-    OPTED_IN    = "opted_in"
-    OPTED_OUT   = "opted_out"
-    RESPONDING  = "responding"   # Actively reducing load
-    COMPLETED   = "completed"    # Response window closed, awaiting settlement
-    FAILED      = "failed"       # Did not achieve target reduction
+    OPTED_IN = "opted_in"
+    OPTED_OUT = "opted_out"
+    RESPONDING = "responding"  # Actively reducing load
+    COMPLETED = "completed"  # Response window closed, awaiting settlement
+    FAILED = "failed"  # Did not achieve target reduction
 
 
 @dataclass
@@ -63,22 +63,23 @@ class DREvent:
 
     Fields follow OpenADR 2.0 schema extended with VoltEdge-specific fields.
     """
-    event_id:             str
-    grid_operator:        str             # "NESO", "PJM", "CAISO", "ENTSOE"
-    event_type:           DREventType
-    status:               DREventStatus
-    start_time:           datetime
-    end_time:             datetime
-    notification_time:    datetime
-    target_reduction_kw:  float           # Fleet-level reduction target
-    clearing_price_kwh:   float           # Revenue per kWh reduced
-    currency:             str   = "GBP"
-    grid_region:          str   = "GB"
-    mandatory:            bool  = False   # True for EMERGENCY events
-    min_response_kw:      float = 0.0    # Minimum site participation
-    max_response_kw:      float = 0.0    # Maximum site participation
-    penalty_per_kwh:      float = 0.0    # Penalty for failing mandatory event
-    raw_payload:          dict[str, Any] = field(default_factory=dict)
+
+    event_id: str
+    grid_operator: str  # "NESO", "PJM", "CAISO", "ENTSOE"
+    event_type: DREventType
+    status: DREventStatus
+    start_time: datetime
+    end_time: datetime
+    notification_time: datetime
+    target_reduction_kw: float  # Fleet-level reduction target
+    clearing_price_kwh: float  # Revenue per kWh reduced
+    currency: str = "GBP"
+    grid_region: str = "GB"
+    mandatory: bool = False  # True for EMERGENCY events
+    min_response_kw: float = 0.0  # Minimum site participation
+    max_response_kw: float = 0.0  # Maximum site participation
+    penalty_per_kwh: float = 0.0  # Penalty for failing mandatory event
+    raw_payload: dict[str, Any] = field(default_factory=dict)
 
     @property
     def duration_minutes(self) -> float:
@@ -87,8 +88,12 @@ class DREvent:
     @property
     def is_active(self) -> bool:
         now = datetime.now(timezone.utc)
-        start = self.start_time if self.start_time.tzinfo else self.start_time.replace(tzinfo=timezone.utc)
-        end   = self.end_time   if self.end_time.tzinfo   else self.end_time.replace(tzinfo=timezone.utc)
+        start = (
+            self.start_time
+            if self.start_time.tzinfo
+            else self.start_time.replace(tzinfo=timezone.utc)
+        )
+        end = self.end_time if self.end_time.tzinfo else self.end_time.replace(tzinfo=timezone.utc)
         return start <= now <= end
 
     @property
@@ -99,18 +104,18 @@ class DREvent:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "event_id":            self.event_id,
-            "grid_operator":       self.grid_operator,
-            "event_type":          self.event_type.value,
-            "status":              self.status.value,
-            "start_time":          self.start_time.isoformat(),
-            "end_time":            self.end_time.isoformat(),
-            "duration_minutes":    self.duration_minutes,
+            "event_id": self.event_id,
+            "grid_operator": self.grid_operator,
+            "event_type": self.event_type.value,
+            "status": self.status.value,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+            "duration_minutes": self.duration_minutes,
             "target_reduction_kw": self.target_reduction_kw,
-            "clearing_price_kwh":  self.clearing_price_kwh,
-            "currency":            self.currency,
-            "mandatory":           self.mandatory,
-            "potential_revenue":   self.potential_revenue,
+            "clearing_price_kwh": self.clearing_price_kwh,
+            "currency": self.currency,
+            "mandatory": self.mandatory,
+            "potential_revenue": self.potential_revenue,
         }
 
 
@@ -120,19 +125,20 @@ class SiteResponse:
     A site's participation record for a specific DR event.
     Tracks opt-in, actual reduction, and settlement.
     """
-    response_id:       str      = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    event_id:          str      = ""
-    site_id:           str      = ""
-    status:            SiteResponseStatus = SiteResponseStatus.OPTED_IN
-    committed_kw:      float    = 0.0    # Reduction committed by operator
-    actual_reduction_kw: float  = 0.0    # Measured reduction vs baseline
-    baseline_kw:       float    = 0.0    # Baseline consumption during event
-    response_kw:       float    = 0.0    # Actual consumption during event
-    revenue_earned:    float    = 0.0
-    penalty_charged:   float    = 0.0
-    opted_in_at:       datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at:      datetime | None = None
-    notes:             str      = ""
+
+    response_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    event_id: str = ""
+    site_id: str = ""
+    status: SiteResponseStatus = SiteResponseStatus.OPTED_IN
+    committed_kw: float = 0.0  # Reduction committed by operator
+    actual_reduction_kw: float = 0.0  # Measured reduction vs baseline
+    baseline_kw: float = 0.0  # Baseline consumption during event
+    response_kw: float = 0.0  # Actual consumption during event
+    revenue_earned: float = 0.0
+    penalty_charged: float = 0.0
+    opted_in_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: datetime | None = None
+    notes: str = ""
 
     @property
     def reduction_pct(self) -> float:
@@ -146,16 +152,16 @@ class SiteResponse:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "response_id":          self.response_id,
-            "event_id":             self.event_id,
-            "site_id":              self.site_id,
-            "status":               self.status.value,
-            "committed_kw":         self.committed_kw,
-            "actual_reduction_kw":  self.actual_reduction_kw,
-            "baseline_kw":          self.baseline_kw,
-            "response_kw":          self.response_kw,
-            "reduction_pct":        self.reduction_pct,
-            "revenue_earned":       self.revenue_earned,
-            "penalty_charged":      self.penalty_charged,
-            "net_revenue":          self.net_revenue,
+            "response_id": self.response_id,
+            "event_id": self.event_id,
+            "site_id": self.site_id,
+            "status": self.status.value,
+            "committed_kw": self.committed_kw,
+            "actual_reduction_kw": self.actual_reduction_kw,
+            "baseline_kw": self.baseline_kw,
+            "response_kw": self.response_kw,
+            "reduction_pct": self.reduction_pct,
+            "revenue_earned": self.revenue_earned,
+            "penalty_charged": self.penalty_charged,
+            "net_revenue": self.net_revenue,
         }

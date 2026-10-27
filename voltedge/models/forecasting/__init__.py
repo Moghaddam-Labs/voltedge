@@ -31,13 +31,29 @@ from voltedge.utils.logger import get_logger
 log = get_logger(__name__)
 
 FEATURE_COLUMNS: list[str] = [
-    "hour_sin", "hour_cos", "dow_sin", "dow_cos", "month_sin", "month_cos",
-    "is_weekend", "is_business_hour",
-    "kwh_lag_1h", "kwh_lag_2h", "kwh_lag_3h", "kwh_lag_6h",
-    "kwh_lag_12h", "kwh_lag_24h", "kwh_lag_48h", "kwh_lag_168h",
-    "kwh_roll_mean_3h", "kwh_roll_mean_6h", "kwh_roll_mean_12h",
-    "kwh_roll_mean_24h", "kwh_roll_std_24h",
-    "kwh_roll_max_24h", "kwh_roll_min_24h",
+    "hour_sin",
+    "hour_cos",
+    "dow_sin",
+    "dow_cos",
+    "month_sin",
+    "month_cos",
+    "is_weekend",
+    "is_business_hour",
+    "kwh_lag_1h",
+    "kwh_lag_2h",
+    "kwh_lag_3h",
+    "kwh_lag_6h",
+    "kwh_lag_12h",
+    "kwh_lag_24h",
+    "kwh_lag_48h",
+    "kwh_lag_168h",
+    "kwh_roll_mean_3h",
+    "kwh_roll_mean_6h",
+    "kwh_roll_mean_12h",
+    "kwh_roll_mean_24h",
+    "kwh_roll_std_24h",
+    "kwh_roll_max_24h",
+    "kwh_roll_min_24h",
 ]
 
 TARGET_COLUMN = "kwh"
@@ -93,16 +109,24 @@ class DemandForecaster:
         cv_maes: list[float] = []
         for _, (tr_idx, val_idx) in enumerate(tscv.split(X_scaled)):
             tmp = GradientBoostingRegressor(
-                n_estimators=200, learning_rate=0.05, max_depth=5,
-                min_samples_leaf=10, subsample=0.8, random_state=42,
+                n_estimators=200,
+                learning_rate=0.05,
+                max_depth=5,
+                min_samples_leaf=10,
+                subsample=0.8,
+                random_state=42,
             )
             tmp.fit(X_scaled[tr_idx], y[tr_idx])
             cv_maes.append(mean_absolute_error(y[val_idx], tmp.predict(X_scaled[val_idx])))
 
         # Final model on full dataset
         self._model = GradientBoostingRegressor(
-            n_estimators=300, learning_rate=0.05, max_depth=5,
-            min_samples_leaf=10, subsample=0.8, random_state=42,
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=5,
+            min_samples_leaf=10,
+            subsample=0.8,
+            random_state=42,
         )
         self._model.fit(X_scaled, y)
 
@@ -143,16 +167,18 @@ class DemandForecaster:
         std = base * 0.08  # ~8% uncertainty band
 
         last_ts = pd.to_datetime(df["timestamp"].iloc[-1], utc=True)
-        return pd.DataFrame([
-            {
-                "timestamp": last_ts + pd.Timedelta(hours=h),
-                "kwh_forecast": max(0.0, round(base, 3)),
-                "lower_bound": max(0.0, round(base - 1.96 * std, 3)),
-                "upper_bound": max(0.0, round(base + 1.96 * std, 3)),
-                "horizon_h": h,
-            }
-            for h in range(1, self.horizon_hours + 1)
-        ])
+        return pd.DataFrame(
+            [
+                {
+                    "timestamp": last_ts + pd.Timedelta(hours=h),
+                    "kwh_forecast": max(0.0, round(base, 3)),
+                    "lower_bound": max(0.0, round(base - 1.96 * std, 3)),
+                    "upper_bound": max(0.0, round(base + 1.96 * std, 3)),
+                    "horizon_h": h,
+                }
+                for h in range(1, self.horizon_hours + 1)
+            ]
+        )
 
     # ── Feature importance ────────────────────────────────────────────────────
 
@@ -160,8 +186,9 @@ class DemandForecaster:
         if not self._model:
             raise RuntimeError("Model not trained.")
         return (
-            pd.DataFrame({"feature": self._feature_cols,
-                          "importance": self._model.feature_importances_})
+            pd.DataFrame(
+                {"feature": self._feature_cols, "importance": self._model.feature_importances_}
+            )
             .sort_values("importance", ascending=False)
             .reset_index(drop=True)
         )
@@ -176,18 +203,23 @@ class DemandForecaster:
         with open(self._artifact_dir / "scaler.pkl", "wb") as f:
             pickle.dump(self._scaler, f, protocol=pickle.HIGHEST_PROTOCOL)
         meta: dict[str, Any] = {
-            "model_name": self.model_name, "model_version": self.model_version,
-            "site_id": self.site_id, "horizon_hours": self.horizon_hours,
-            "feature_columns": self._feature_cols, "metrics": metrics or {},
+            "model_name": self.model_name,
+            "model_version": self.model_version,
+            "site_id": self.site_id,
+            "horizon_hours": self.horizon_hours,
+            "feature_columns": self._feature_cols,
+            "metrics": metrics or {},
         }
         (self._artifact_dir / "metadata.json").write_text(json.dumps(meta, indent=2))
         log.info("forecaster.saved", site=self.site_id)
 
     def load(self) -> None:
         with open(self._artifact_dir / "model.pkl", "rb") as f:
-            self._model = pickle.load(f)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._model = pickle.load(f)  # nosec B301
         with open(self._artifact_dir / "scaler.pkl", "rb") as f:
-            self._scaler = pickle.load(f)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._scaler = pickle.load(f)  # nosec B301
         meta = json.loads((self._artifact_dir / "metadata.json").read_text())
         self._feature_cols = meta.get("feature_columns", FEATURE_COLUMNS)
         self.horizon_hours = meta.get("horizon_hours", self.horizon_hours)

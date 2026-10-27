@@ -26,8 +26,8 @@ from __future__ import annotations
 import asyncio
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
-from typing import AsyncIterator
 
 from voltedge.demand_response.events import DREvent, DREventStatus, DREventType
 from voltedge.utils.logger import get_logger
@@ -59,56 +59,63 @@ class MockGridConnector(BaseGridConnector):
 
     def __init__(
         self,
-        events_per_day: int   = 2,
+        events_per_day: int = 2,
         clearing_price: float = 0.45,
-        currency:       str   = "GBP",
-        seed:           int   = 42,
+        currency: str = "GBP",
+        seed: int = 42,
     ) -> None:
         import random
-        self._epd    = events_per_day
-        self._price  = clearing_price
+
+        self._epd = events_per_day
+        self._price = clearing_price
         self._currency = currency
-        self._rng    = random.Random(seed)
-        self._seen:  set[str] = set()
+        self._rng = random.Random(seed)
+        self._seen: set[str] = set()
 
     def fetch_events(self, hours_ahead: int = 24) -> list[DREvent]:
         """Return a deterministic set of upcoming mock events."""
-        now    = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
         events = []
 
-        for i in range(self._epd):
+        for _i in range(self._epd):
             start_offset_h = self._rng.uniform(1, hours_ahead - 2)
-            duration_h     = self._rng.choice([0.5, 1.0, 2.0])
-            event_type     = self._rng.choice([
-                DREventType.ECONOMIC,
-                DREventType.ECONOMIC,
-                DREventType.RELIABILITY,
-                DREventType.EMERGENCY,
-            ])
+            duration_h = self._rng.choice([0.5, 1.0, 2.0])
+            event_type = self._rng.choice(
+                [
+                    DREventType.ECONOMIC,
+                    DREventType.ECONOMIC,
+                    DREventType.RELIABILITY,
+                    DREventType.EMERGENCY,
+                ]
+            )
             start = now + timedelta(hours=start_offset_h)
-            end   = start + timedelta(hours=duration_h)
+            end = start + timedelta(hours=duration_h)
 
             price = self._price * (
-                3.0 if event_type == DREventType.EMERGENCY else
-                1.5 if event_type == DREventType.RELIABILITY else
-                1.0
+                3.0
+                if event_type == DREventType.EMERGENCY
+                else 1.5
+                if event_type == DREventType.RELIABILITY
+                else 1.0
             )
 
-            events.append(DREvent(
-                event_id=f"MOCK-{self._rng.randint(10000, 99999)}",
-                grid_operator=self.operator_name,
-                event_type=event_type,
-                status=DREventStatus.UPCOMING,
-                start_time=start,
-                end_time=end,
-                notification_time=now,
-                target_reduction_kw=self._rng.uniform(100, 500),
-                clearing_price_kwh=round(price, 3),
-                currency=self._currency,
-                grid_region="GB",
-                mandatory=(event_type == DREventType.EMERGENCY),
-                min_response_kw=10.0,
-            ))
+            events.append(
+                DREvent(
+                    event_id=f"MOCK-{self._rng.randint(10000, 99999)}",
+                    grid_operator=self.operator_name,
+                    event_type=event_type,
+                    status=DREventStatus.UPCOMING,
+                    start_time=start,
+                    end_time=end,
+                    notification_time=now,
+                    target_reduction_kw=self._rng.uniform(100, 500),
+                    clearing_price_kwh=round(price, 3),
+                    currency=self._currency,
+                    grid_region="GB",
+                    mandatory=(event_type == DREventType.EMERGENCY),
+                    min_response_kw=10.0,
+                )
+            )
 
         return events
 
@@ -131,10 +138,10 @@ class NESOConnector(BaseGridConnector):
     """
 
     operator_name = "NESO"
-    BASE_URL      = "https://api.neso.energy/api/3/action/datastore_search"
+    BASE_URL = "https://api.neso.energy/api/3/action/datastore_search"
 
     # NESO dataset IDs for demand side balancing reserve
-    DSBR_DATASET  = "b7bfb81a-e1fb-4ab0-83e4-7b32d1e574b6"
+    DSBR_DATASET = "b7bfb81a-e1fb-4ab0-83e4-7b32d1e574b6"
 
     def __init__(self, dry_run: bool = False) -> None:
         self.dry_run = dry_run
@@ -145,6 +152,7 @@ class NESOConnector(BaseGridConnector):
             return []
 
         import httpx
+
         try:
             resp = httpx.get(
                 self.BASE_URL,
@@ -194,16 +202,17 @@ class PJMConnector(BaseGridConnector):
     """
 
     operator_name = "PJM"
-    BASE_URL      = "https://api.pjm.com/api/v1"
+    BASE_URL = "https://api.pjm.com/api/v1"
 
     def __init__(self, api_key: str = "", dry_run: bool = False) -> None:
         self._api_key = api_key
-        self.dry_run  = dry_run
+        self.dry_run = dry_run
 
     def fetch_events(self, hours_ahead: int = 24) -> list[DREvent]:
         if self.dry_run:
             return []
         import httpx
+
         try:
             resp = httpx.get(
                 f"{self.BASE_URL}/demand_response/events",

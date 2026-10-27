@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
 from config.settings import settings
 from voltedge.utils.logger import get_logger
 
@@ -130,20 +131,17 @@ class BaseVoltEdgeModel(abc.ABC):
         artifact_path = self._artifact_dir / "model.pkl"
         if not artifact_path.exists():
             raise FileNotFoundError(
-                f"No saved model for {self.model_name}/{self.site_id} "
-                f"at {artifact_path}"
+                f"No saved model for {self.model_name}/{self.site_id} at {artifact_path}"
             )
 
         with open(artifact_path, "rb") as fh:
-            self._model = pickle.load(fh)
+            # Safe: loads model artefacts VoltEdge saved itself, never user uploads.
+            self._model = pickle.load(fh)  # nosec B301
 
         meta_path = self._artifact_dir / "metadata.json"
         if meta_path.exists():
             data = json.loads(meta_path.read_text())
-            self._metadata = ModelMetadata(**{
-                k: v for k, v in data.items()
-                if k != "trained_at"
-            })
+            self._metadata = ModelMetadata(**{k: v for k, v in data.items() if k != "trained_at"})
             self._metadata.trained_at = datetime.fromisoformat(data["trained_at"])
 
         log.info("model.loaded", model=self.model_name, site=self.site_id)

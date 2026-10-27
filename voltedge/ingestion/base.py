@@ -17,8 +17,8 @@ from uuid import uuid4
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Domain model for a single energy reading ──────────────────────────────────
+
 
 class EnergyReading(BaseModel):
     """Validated, typed representation of one sensor reading."""
@@ -49,6 +49,7 @@ class EnergyReading(BaseModel):
 
 # ── Connector result envelope ──────────────────────────────────────────────────
 
+
 @dataclass
 class IngestionResult:
     source: str
@@ -68,6 +69,7 @@ class IngestionResult:
 
 
 # ── Abstract base connector ────────────────────────────────────────────────────
+
 
 class BaseConnector(abc.ABC):
     """
@@ -103,6 +105,7 @@ class BaseConnector(abc.ABC):
         Invalid records are collected as errors, not raised.
         """
         from voltedge.utils.logger import get_logger
+
         log = get_logger(self.__class__.__name__)
 
         raw_records = await self._fetch_raw()

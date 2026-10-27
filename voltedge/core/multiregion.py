@@ -15,7 +15,7 @@ Sites are pinned to a home region based on:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -26,29 +26,32 @@ log = get_logger(__name__)
 
 # ── Region enum ───────────────────────────────────────────────────────────────
 
+
 class AWSRegion(str, Enum):
-    EU_WEST_1      = "eu-west-1"
-    US_EAST_1      = "us-east-1"
+    EU_WEST_1 = "eu-west-1"
+    US_EAST_1 = "us-east-1"
     AP_SOUTHEAST_1 = "ap-southeast-1"
 
 
 # ── Data residency policies ───────────────────────────────────────────────────
 
+
 class DataResidencyZone(str, Enum):
-    EU    = "eu"      # GDPR — must stay in eu-west-1
-    US    = "us"      # CCPA — must stay in us-east-1
-    APAC  = "apac"    # Local laws — must stay in ap-southeast-1
+    EU = "eu"  # GDPR — must stay in eu-west-1
+    US = "us"  # CCPA — must stay in us-east-1
+    APAC = "apac"  # Local laws — must stay in ap-southeast-1
     GLOBAL = "global"  # No restriction — any region
 
 
 RESIDENCY_TO_REGION: dict[DataResidencyZone, AWSRegion] = {
-    DataResidencyZone.EU:   AWSRegion.EU_WEST_1,
-    DataResidencyZone.US:   AWSRegion.US_EAST_1,
+    DataResidencyZone.EU: AWSRegion.EU_WEST_1,
+    DataResidencyZone.US: AWSRegion.US_EAST_1,
     DataResidencyZone.APAC: AWSRegion.AP_SOUTHEAST_1,
 }
 
 
 # ── Per-region config ─────────────────────────────────────────────────────────
+
 
 @dataclass
 class RegionConfig:
@@ -63,11 +66,12 @@ class RegionConfig:
         is_primary:     Whether this is the primary (write) region.
         residency_zone: Data residency zone this region serves.
     """
-    region:         AWSRegion
-    s3_bucket:      str
-    db_url:         str
-    api_endpoint:   str       = ""
-    is_primary:     bool      = False
+
+    region: AWSRegion
+    s3_bucket: str
+    db_url: str
+    api_endpoint: str = ""
+    is_primary: bool = False
     residency_zone: DataResidencyZone = DataResidencyZone.GLOBAL
 
     @property
@@ -76,6 +80,7 @@ class RegionConfig:
 
 
 # ── Multi-region router ───────────────────────────────────────────────────────
+
 
 class MultiRegionRouter:
     """
@@ -96,14 +101,16 @@ class MultiRegionRouter:
         if not configs:
             raise ValueError("At least one RegionConfig is required.")
 
-        self._configs:      dict[AWSRegion, RegionConfig] = {c.region: c for c in configs}
-        self._site_mapping: dict[str, AWSRegion]          = site_mapping or {}
-        self._policy:       dict[DataResidencyZone, AWSRegion] = policy or RESIDENCY_TO_REGION
+        self._configs: dict[AWSRegion, RegionConfig] = {c.region: c for c in configs}
+        self._site_mapping: dict[str, AWSRegion] = site_mapping or {}
+        self._policy: dict[DataResidencyZone, AWSRegion] = policy or RESIDENCY_TO_REGION
 
         # Validate that primary region exists if any config claims to be primary
         primaries = [c for c in configs if c.is_primary]
         if len(primaries) > 1:
-            raise ValueError(f"Only one primary region allowed; got {[p.region for p in primaries]}")
+            raise ValueError(
+                f"Only one primary region allowed; got {[p.region for p in primaries]}"
+            )
 
     @property
     def primary(self) -> RegionConfig:
@@ -144,8 +151,12 @@ class MultiRegionRouter:
         if residency != DataResidencyZone.GLOBAL:
             policy_region = self._policy.get(residency)
             if policy_region and policy_region in self._configs:
-                log.debug("router.policy", site=site_id, residency=residency.value,
-                          region=policy_region.value)
+                log.debug(
+                    "router.policy",
+                    site=site_id,
+                    residency=residency.value,
+                    region=policy_region.value,
+                )
                 return self._configs[policy_region]
 
         # 3. Infer from site_id prefix (e.g. "EU-LONDON-01" → eu-west-1)
@@ -181,9 +192,20 @@ class MultiRegionRouter:
     @staticmethod
     def _infer_region_from_site_id(site_id_upper: str) -> AWSRegion | None:
         """Heuristic: look for geographic prefixes in the site ID."""
-        eu_keywords  = ("EU-", "GB-", "DE-", "FR-", "NL-", "LONDON", "AMSTERDAM",
-                         "FRANKFURT", "PARIS", "ROTTERDAM", "DUBLIN")
-        us_keywords  = ("US-", "NA-", "HOUSTON", "NEWYORK", "CHICAGO", "DALLAS")
+        eu_keywords = (
+            "EU-",
+            "GB-",
+            "DE-",
+            "FR-",
+            "NL-",
+            "LONDON",
+            "AMSTERDAM",
+            "FRANKFURT",
+            "PARIS",
+            "ROTTERDAM",
+            "DUBLIN",
+        )
+        us_keywords = ("US-", "NA-", "HOUSTON", "NEWYORK", "CHICAGO", "DALLAS")
         apac_keywords = ("APAC-", "SG-", "JP-", "AU-", "SINGAPORE", "TOKYO", "SYDNEY")
 
         for kw in eu_keywords:
@@ -201,6 +223,7 @@ class MultiRegionRouter:
 
 # ── Health checker ────────────────────────────────────────────────────────────
 
+
 async def check_all_regions(configs: list[RegionConfig], timeout: float = 10.0) -> dict[str, bool]:
     """
     Asynchronously check /health on each regional API endpoint.
@@ -209,6 +232,7 @@ async def check_all_regions(configs: list[RegionConfig], timeout: float = 10.0) 
         dict mapping region.value → True/False (healthy/unhealthy).
     """
     import asyncio
+
     import httpx
 
     async def _check_one(cfg: RegionConfig) -> tuple[str, bool]:

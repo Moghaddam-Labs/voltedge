@@ -28,10 +28,7 @@ Built-in flags:
 from __future__ import annotations
 
 import hashlib
-import json
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -42,14 +39,16 @@ log = get_logger(__name__)
 
 # ── Tier enum (mirrors oem.tenants) ──────────────────────────────────────────
 
+
 class Tier(str, Enum):
-    STARTER      = "starter"
+    STARTER = "starter"
     PROFESSIONAL = "professional"
-    ENTERPRISE   = "enterprise"
-    ALL          = "all"         # All tiers
+    ENTERPRISE = "enterprise"
+    ALL = "all"  # All tiers
 
 
 # ── Flag definition ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class FlagDefinition:
@@ -64,12 +63,13 @@ class FlagDefinition:
         rollout_pct:   Gradual rollout — percentage of tenants enabled (0–100).
         tags:          Categorisation tags.
     """
-    key:           str
-    description:   str
-    default:       bool                 = False
-    tier_defaults: dict[Tier, bool]     = field(default_factory=dict)
-    rollout_pct:   float                = 100.0
-    tags:          list[str]            = field(default_factory=list)
+
+    key: str
+    description: str
+    default: bool = False
+    tier_defaults: dict[Tier, bool] = field(default_factory=dict)
+    rollout_pct: float = 100.0
+    tags: list[str] = field(default_factory=list)
 
     def is_enabled_for_tier(self, tier: Tier) -> bool:
         return self.tier_defaults.get(tier, self.default)
@@ -80,7 +80,13 @@ class FlagDefinition:
             return True
         if self.rollout_pct <= 0.0:
             return False
-        bucket = int(hashlib.md5(f"{self.key}:{tenant_id}".encode()).hexdigest(), 16) % 100
+        bucket = (
+            int(
+                hashlib.md5(f"{self.key}:{tenant_id}".encode(), usedforsecurity=False).hexdigest(),
+                16,
+            )
+            % 100
+        )
         return bucket < self.rollout_pct
 
 
@@ -92,7 +98,9 @@ FEATURE_FLAGS: dict[str, FlagDefinition] = {
         description="Ensemble GBM+LSTM forecasting model (v2)",
         default=False,
         tier_defaults={
-            Tier.STARTER: False, Tier.PROFESSIONAL: False, Tier.ENTERPRISE: True,
+            Tier.STARTER: False,
+            Tier.PROFESSIONAL: False,
+            Tier.ENTERPRISE: True,
         },
         tags=["ml", "forecasting"],
     ),
@@ -101,7 +109,7 @@ FEATURE_FLAGS: dict[str, FlagDefinition] = {
         description="Real-time LSTM inference (<1s response)",
         default=False,
         tier_defaults={Tier.ENTERPRISE: True},
-        rollout_pct=25.0,   # 25% of Enterprise tenants in EA
+        rollout_pct=25.0,  # 25% of Enterprise tenants in EA
         tags=["ml", "lstm", "early_access"],
     ),
     "esg_scope3": FlagDefinition(
@@ -109,7 +117,7 @@ FEATURE_FLAGS: dict[str, FlagDefinition] = {
         description="Scope 3 supply chain emissions reporting",
         default=False,
         tier_defaults={Tier.PROFESSIONAL: False, Tier.ENTERPRISE: False},
-        rollout_pct=0.0,    # Not released yet
+        rollout_pct=0.0,  # Not released yet
         tags=["esg", "coming_soon"],
     ),
     "marketplace_checkout": FlagDefinition(
@@ -166,6 +174,7 @@ FEATURE_FLAGS: dict[str, FlagDefinition] = {
 
 # ── Feature flag service ──────────────────────────────────────────────────────
 
+
 class FeatureFlagService:
     """
     Evaluates feature flags for a given tenant + tier context.
@@ -177,16 +186,16 @@ class FeatureFlagService:
         self,
         catalogue: dict[str, FlagDefinition] | None = None,
     ) -> None:
-        self._flags:    dict[str, FlagDefinition] = catalogue or FEATURE_FLAGS
+        self._flags: dict[str, FlagDefinition] = catalogue or FEATURE_FLAGS
         self._overrides: dict[str, dict[str, bool]] = {}  # {tenant_id: {flag: bool}}
 
     # ── Evaluation ────────────────────────────────────────────────────────────
 
     def is_enabled(
         self,
-        flag_key:  str,
+        flag_key: str,
         tenant_id: str,
-        tier:      Tier = Tier.STARTER,
+        tier: Tier = Tier.STARTER,
     ) -> bool:
         """
         Resolve a feature flag for a tenant.
@@ -221,14 +230,9 @@ class FeatureFlagService:
         # 4. Global default
         return flag.default
 
-    def get_all_flags(
-        self, tenant_id: str, tier: Tier = Tier.STARTER
-    ) -> dict[str, bool]:
+    def get_all_flags(self, tenant_id: str, tier: Tier = Tier.STARTER) -> dict[str, bool]:
         """Return the full flag map for a tenant."""
-        return {
-            key: self.is_enabled(key, tenant_id, tier)
-            for key in self._flags
-        }
+        return {key: self.is_enabled(key, tenant_id, tier) for key in self._flags}
 
     # ── Overrides ─────────────────────────────────────────────────────────────
 
@@ -239,8 +243,7 @@ class FeatureFlagService:
         if tenant_id not in self._overrides:
             self._overrides[tenant_id] = {}
         self._overrides[tenant_id][flag_key] = enabled
-        log.info("feature_flags.override_set",
-                 tenant=tenant_id, flag=flag_key, enabled=enabled)
+        log.info("feature_flags.override_set", tenant=tenant_id, flag=flag_key, enabled=enabled)
 
     def clear_override(self, tenant_id: str, flag_key: str) -> None:
         """Remove a tenant-specific override (reverts to tier/global default)."""

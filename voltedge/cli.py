@@ -26,6 +26,7 @@ def main() -> None:
 
 # ── Pipeline commands ─────────────────────────────────────────────────────────
 
+
 @main.group()
 def pipeline() -> None:
     """Data ingestion and processing commands."""
@@ -46,7 +47,9 @@ def pipeline_simulate(site_id: str, site_type: str, hours: int, seed: int) -> No
     from voltedge.ingestion.simulators import SimulatedSiteConnector
     from voltedge.storage.base import LocalStore
 
-    console.print(f"[bold green]▶ Running simulation[/] site={site_id} type={site_type} hours={hours}")
+    console.print(
+        f"[bold green]▶ Running simulation[/] site={site_id} type={site_type} hours={hours}"
+    )
 
     store = LocalStore()
     pipeline = EnergyPipeline(store=store)
@@ -66,6 +69,7 @@ def pipeline_simulate(site_id: str, site_type: str, hours: int, seed: int) -> No
 
 # ── Dashboard command ─────────────────────────────────────────────────────────
 
+
 @main.command("dashboard")
 @click.option("--port", default=8050)
 @click.option("--debug/--no-debug", default=True)
@@ -73,11 +77,13 @@ def dashboard(port: int, debug: bool) -> None:
     """Start the Dash dashboard."""
     console.print(f"[bold blue]🔋 Starting VoltEdge Dashboard[/] on http://localhost:{port}")
     from voltedge.dashboard.app import create_app
+
     app = create_app()
     app.run(debug=debug, port=port)
 
 
 # ── ESG command ───────────────────────────────────────────────────────────────
+
 
 @main.group()
 def esg() -> None:

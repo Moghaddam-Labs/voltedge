@@ -7,29 +7,29 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from voltedge.ingestion.mqtt_connector import MQTTConnector
-
 
 SITE = "MQTT-TEST-SITE"
 
 
 def _make_payload(kwh: float = 45.23, sensor: str = "MAIN") -> dict:
     return {
-        "ts":      datetime.now(timezone.utc).isoformat(),
-        "kwh":     kwh,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "kwh": kwh,
         "voltage": 230.1,
         "current": 197.5,
-        "pf":      0.92,
-        "temp_c":  21.3,
-        "sensor":  sensor,
+        "pf": 0.92,
+        "temp_c": 21.3,
+        "sensor": sensor,
     }
 
 
 # ── Unit: _parse ──────────────────────────────────────────────────────────────
+
 
 def test_parse_maps_all_fields():
     connector = MQTTConnector(SITE)
@@ -62,6 +62,7 @@ def test_parse_metadata_has_source():
 
 # ── Unit: inject_message ──────────────────────────────────────────────────────
 
+
 def test_inject_message_appends_to_messages():
     connector = MQTTConnector(SITE)
     connector.inject_message(_make_payload(kwh=55.0))
@@ -77,6 +78,7 @@ def test_inject_multiple_messages():
 
 
 # ── Integration: fetch via inject_message (no broker) ─────────────────────────
+
 
 @pytest.fixture
 def patched_connector():
@@ -157,9 +159,9 @@ def test_tls_flag_stored():
 def test_fetch_mixed_valid_invalid(patched_connector):
     """Mix of valid and invalid payloads — check correct split."""
     payloads = [
-        _make_payload(kwh=50.0),          # valid
-        {"kwh": -5.0},                     # invalid: negative kwh
-        _make_payload(kwh=75.0),          # valid
+        _make_payload(kwh=50.0),  # valid
+        {"kwh": -5.0},  # invalid: negative kwh
+        _make_payload(kwh=75.0),  # valid
     ]
     result = asyncio.run(_fetch_with_injected(patched_connector, payloads))
     assert result.records_valid == 2

@@ -28,8 +28,6 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
-import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -47,40 +45,41 @@ MAX_CONTEXT_CHARS = 12_000
 @dataclass
 class SiteSnapshot:
     """Distilled one-site context for LLM injection."""
-    site_id:          str
-    snapshot_time:    str
-    period_hours:     int
+
+    site_id: str
+    snapshot_time: str
+    period_hours: int
 
     # Consumption
-    total_kwh:        float = 0.0
+    total_kwh: float = 0.0
     avg_kwh_per_hour: float = 0.0
-    peak_kwh:         float = 0.0
-    peak_at:          str   = ""
-    min_kwh:          float = 0.0
+    peak_kwh: float = 0.0
+    peak_at: str = ""
+    min_kwh: float = 0.0
 
     # Trend
     pct_change_vs_prev_period: float = 0.0
-    trend_direction:           str   = "stable"  # up / down / stable
+    trend_direction: str = "stable"  # up / down / stable
 
     # Anomalies
-    anomaly_count:    int         = 0
-    anomaly_details:  list[dict]  = field(default_factory=list)
+    anomaly_count: int = 0
+    anomaly_details: list[dict] = field(default_factory=list)
 
     # ESG
-    co2_kg:           float = 0.0
+    co2_kg: float = 0.0
     carbon_intensity: float = 0.0
-    scope2_tco2e:     float = 0.0
+    scope2_tco2e: float = 0.0
 
     # Forecast
-    forecast_24h_kwh:  float = 0.0
+    forecast_24h_kwh: float = 0.0
     forecast_available: bool = False
 
     # Cost
-    estimated_cost:   float = 0.0
-    cost_currency:    str   = "GBP"
+    estimated_cost: float = 0.0
+    cost_currency: str = "GBP"
 
     # Raw for tool responses
-    raw_stats:        dict[str, Any] = field(default_factory=dict)
+    raw_stats: dict[str, Any] = field(default_factory=dict)
 
     def to_prompt_text(self) -> str:
         """Render as a concise prompt-ready text block."""
@@ -110,8 +109,8 @@ class SiteSnapshot:
             ]
             for a in self.anomaly_details[:5]:
                 lines.append(
-                    f"  - {a.get('timestamp','?')[:16]}: "
-                    f"score={a.get('score',0):.3f}, label={a.get('label','?')}"
+                    f"  - {a.get('timestamp', '?')[:16]}: "
+                    f"score={a.get('score', 0):.3f}, label={a.get('label', '?')}"
                 )
             lines.append("")
         else:
@@ -138,14 +137,15 @@ class SiteSnapshot:
 @dataclass
 class PortfolioSnapshot:
     """Multi-site aggregated context."""
-    sites:            list[SiteSnapshot]
-    snapshot_time:    str
-    period_hours:     int
-    total_kwh:        float = 0.0
-    total_co2_kg:     float = 0.0
-    total_anomalies:  int   = 0
-    highest_consumer: str   = ""
-    lowest_consumer:  str   = ""
+
+    sites: list[SiteSnapshot]
+    snapshot_time: str
+    period_hours: int
+    total_kwh: float = 0.0
+    total_co2_kg: float = 0.0
+    total_anomalies: int = 0
+    highest_consumer: str = ""
+    lowest_consumer: str = ""
 
     def to_prompt_text(self) -> str:
         lines = [
@@ -185,14 +185,14 @@ class ContextBuilder:
 
     def __init__(
         self,
-        store:              Any,
-        carbon_intensity:   float = 0.207,
-        tariff_per_kwh:     float = 0.28,
-        currency:           str   = "GBP",
+        store: Any,
+        carbon_intensity: float = 0.207,
+        tariff_per_kwh: float = 0.28,
+        currency: str = "GBP",
     ) -> None:
-        self._store   = store
-        self._ci      = carbon_intensity
-        self._tariff  = tariff_per_kwh
+        self._store = store
+        self._ci = carbon_intensity
+        self._tariff = tariff_per_kwh
         self._currency = currency
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -217,21 +217,21 @@ class ContextBuilder:
             return snap
 
         kwh = df["kwh"]
-        snap.total_kwh        = round(float(kwh.sum()), 2)
+        snap.total_kwh = round(float(kwh.sum()), 2)
         snap.avg_kwh_per_hour = round(float(kwh.mean()), 2)
-        snap.peak_kwh         = round(float(kwh.max()), 2)
-        snap.min_kwh          = round(float(kwh.min()), 2)
+        snap.peak_kwh = round(float(kwh.max()), 2)
+        snap.min_kwh = round(float(kwh.min()), 2)
 
         # Peak timestamp
         if "timestamp" in df.columns:
             peak_idx = kwh.idxmax()
-            peak_ts  = pd.to_datetime(df.loc[peak_idx, "timestamp"])
+            peak_ts = pd.to_datetime(df.loc[peak_idx, "timestamp"])
             snap.peak_at = peak_ts.strftime("%Y-%m-%d %H:%M")
 
         # Trend vs prior period
         prior_df = self._filter_hours(
             self._store.read(site_id, layer="processed", days=max(1, hours // 24 * 2 + 1)),
-            hours * 2
+            hours * 2,
         )
         if not prior_df.empty:
             prior_period = self._filter_hours_offset(prior_df, hours, hours)
@@ -242,19 +242,21 @@ class ContextBuilder:
                         (snap.total_kwh - prior_total) / prior_total * 100, 1
                     )
         snap.trend_direction = (
-            "up"     if snap.pct_change_vs_prev_period > 5  else
-            "down"   if snap.pct_change_vs_prev_period < -5 else
-            "stable"
+            "up"
+            if snap.pct_change_vs_prev_period > 5
+            else "down"
+            if snap.pct_change_vs_prev_period < -5
+            else "stable"
         )
 
         # ESG
-        snap.co2_kg           = round(snap.total_kwh * self._ci, 2)
+        snap.co2_kg = round(snap.total_kwh * self._ci, 2)
         snap.carbon_intensity = self._ci
-        snap.scope2_tco2e     = round(snap.co2_kg / 1000, 6)
+        snap.scope2_tco2e = round(snap.co2_kg / 1000, 6)
 
         # Cost estimate
         snap.estimated_cost = round(snap.total_kwh * self._tariff, 2)
-        snap.cost_currency  = self._currency
+        snap.cost_currency = self._currency
 
         # Anomalies from processed columns
         snap.anomaly_count, snap.anomaly_details = self._extract_anomalies(df)
@@ -273,8 +275,8 @@ class ContextBuilder:
     def build_portfolio(self, site_ids: list[str], hours: int = 24) -> PortfolioSnapshot:
         """Build a multi-site aggregated snapshot."""
         snapshots = [self.build_site(sid, hours) for sid in site_ids]
-        total_kwh  = sum(s.total_kwh for s in snapshots)
-        total_co2  = sum(s.co2_kg for s in snapshots)
+        total_kwh = sum(s.total_kwh for s in snapshots)
+        total_co2 = sum(s.co2_kg for s in snapshots)
         total_anom = sum(s.anomaly_count for s in snapshots)
 
         by_kwh = sorted(snapshots, key=lambda s: s.total_kwh)
@@ -286,7 +288,7 @@ class ContextBuilder:
             total_co2_kg=round(total_co2, 2),
             total_anomalies=total_anom,
             highest_consumer=by_kwh[-1].site_id if by_kwh else "",
-            lowest_consumer=by_kwh[0].site_id  if by_kwh else "",
+            lowest_consumer=by_kwh[0].site_id if by_kwh else "",
         )
 
     # ── Internal ──────────────────────────────────────────────────────────────
@@ -308,23 +310,25 @@ class ContextBuilder:
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         now = pd.Timestamp.now(tz="UTC")
         return df[
-            (df["timestamp"] >= now - pd.Timedelta(hours=start_hours)) &
-            (df["timestamp"] <  now - pd.Timedelta(hours=end_hours))
+            (df["timestamp"] >= now - pd.Timedelta(hours=start_hours))
+            & (df["timestamp"] < now - pd.Timedelta(hours=end_hours))
         ].reset_index(drop=True)
 
     @staticmethod
     def _extract_anomalies(df: pd.DataFrame) -> tuple[int, list[dict]]:
         if "anomaly_score" not in df.columns:
             return 0, []
-        flagged = df[df.get("is_anomaly", df["anomaly_score"] > 0.75) == True]
+        flagged = df[df.get("is_anomaly", df["anomaly_score"] > 0.75).eq(True)]
         details = []
         for _, row in flagged.head(10).iterrows():
-            details.append({
-                "timestamp": str(row.get("timestamp", ""))[:19],
-                "score":     round(float(row.get("anomaly_score", 0)), 3),
-                "label":     str(row.get("anomaly_label", "anomaly")),
-                "kwh":       round(float(row.get("kwh", 0)), 2),
-            })
+            details.append(
+                {
+                    "timestamp": str(row.get("timestamp", ""))[:19],
+                    "score": round(float(row.get("anomaly_score", 0)), 3),
+                    "label": str(row.get("anomaly_label", "anomaly")),
+                    "kwh": round(float(row.get("kwh", 0)), 2),
+                }
+            )
         return len(flagged), details
 
     @staticmethod

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import io
 import uuid
-from datetime import datetime, timezone
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 

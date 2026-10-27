@@ -33,7 +33,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 from voltedge.streaming.events import EnergyEvent, EventType
 from voltedge.utils.logger import get_logger
@@ -42,6 +42,7 @@ log = get_logger(__name__)
 
 
 # ── Connection record ─────────────────────────────────────────────────────────
+
 
 class Connection:
     """Represents one active WebSocket client."""
@@ -52,16 +53,18 @@ class Connection:
         connection_id: str | None = None,
         tenant_id: str = "anonymous",
     ) -> None:
-        self.ws            = websocket
-        self.id            = connection_id or str(uuid.uuid4())[:8]
-        self.tenant_id     = tenant_id
-        self.subscribed_sites: set[str]       = set()
+        self.ws = websocket
+        self.id = connection_id or str(uuid.uuid4())[:8]
+        self.tenant_id = tenant_id
+        self.subscribed_sites: set[str] = set()
         self.subscribed_types: set[EventType] = {
-            EventType.PROCESSED, EventType.ANOMALY, EventType.ALERT
+            EventType.PROCESSED,
+            EventType.ANOMALY,
+            EventType.ALERT,
         }
-        self.connected_at  = datetime.now(timezone.utc)
+        self.connected_at = datetime.now(timezone.utc)
         self.messages_sent = 0
-        self.alive         = True
+        self.alive = True
 
     async def send_json(self, data: dict) -> bool:
         """Send a JSON message. Returns False if the connection is gone."""
@@ -78,23 +81,24 @@ class Connection:
         if event.event_type not in self.subscribed_types:
             return False
         if not self.subscribed_sites:
-            return True     # wildcard — all sites
+            return True  # wildcard — all sites
         return event.site_id in self.subscribed_sites
 
     @property
     def info(self) -> dict[str, Any]:
         return {
-            "connection_id":     self.id,
-            "tenant_id":         self.tenant_id,
-            "subscribed_sites":  list(self.subscribed_sites),
-            "subscribed_types":  [t.value for t in self.subscribed_types],
-            "connected_at":      self.connected_at.isoformat(),
-            "messages_sent":     self.messages_sent,
-            "alive":             self.alive,
+            "connection_id": self.id,
+            "tenant_id": self.tenant_id,
+            "subscribed_sites": list(self.subscribed_sites),
+            "subscribed_types": [t.value for t in self.subscribed_types],
+            "connected_at": self.connected_at.isoformat(),
+            "messages_sent": self.messages_sent,
+            "alive": self.alive,
         }
 
 
 # ── WebSocket hub ─────────────────────────────────────────────────────────────
+
 
 class WebSocketHub:
     """
@@ -111,12 +115,12 @@ class WebSocketHub:
         max_connections_per_tenant: int = 20,
         heartbeat_interval: float = 30.0,
     ) -> None:
-        self._connections:  dict[str, Connection]       = {}   # {conn_id: Connection}
-        self._by_tenant:    dict[str, set[str]]         = defaultdict(set)
+        self._connections: dict[str, Connection] = {}  # {conn_id: Connection}
+        self._by_tenant: dict[str, set[str]] = defaultdict(set)
         self._max_per_tenant = max_connections_per_tenant
-        self._heartbeat_sec  = heartbeat_interval
+        self._heartbeat_sec = heartbeat_interval
         self._total_received = 0
-        self._total_sent     = 0
+        self._total_sent = 0
         self._hb_task: asyncio.Task | None = None
 
     # ── Connection lifecycle ──────────────────────────────────────────────────
@@ -132,8 +136,7 @@ class WebSocketHub:
         """
         if len(self._by_tenant[tenant_id]) >= self._max_per_tenant:
             await websocket.close(code=4029, reason="Connection limit reached")
-            log.warning("hub.connection_limit", tenant=tenant_id,
-                        limit=self._max_per_tenant)
+            log.warning("hub.connection_limit", tenant=tenant_id, limit=self._max_per_tenant)
             return None
 
         await websocket.accept()
@@ -141,22 +144,27 @@ class WebSocketHub:
         self._connections[conn.id] = conn
         self._by_tenant[tenant_id].add(conn.id)
 
-        await conn.send_json({
-            "event":            "connected",
-            "connection_id":    conn.id,
-            "subscribed_sites": [],
-            "message":          "Connected to VoltEdge live stream. Send subscribe message.",
-        })
-        log.info("hub.connected", conn=conn.id, tenant=tenant_id,
-                 total=len(self._connections))
+        await conn.send_json(
+            {
+                "event": "connected",
+                "connection_id": conn.id,
+                "subscribed_sites": [],
+                "message": "Connected to VoltEdge live stream. Send subscribe message.",
+            }
+        )
+        log.info("hub.connected", conn=conn.id, tenant=tenant_id, total=len(self._connections))
         return conn
 
     async def disconnect(self, conn_id: str) -> None:
         conn = self._connections.pop(conn_id, None)
         if conn:
             self._by_tenant[conn.tenant_id].discard(conn_id)
-            log.info("hub.disconnected", conn=conn_id,
-                     tenant=conn.tenant_id, msgs_sent=conn.messages_sent)
+            log.info(
+                "hub.disconnected",
+                conn=conn_id,
+                tenant=conn.tenant_id,
+                msgs_sent=conn.messages_sent,
+            )
 
     async def handle_client_message(self, conn: Connection, raw: str) -> None:
         """Process an incoming control message from a WebSocket client."""
@@ -176,11 +184,13 @@ class WebSocketHub:
                 conn.subscribed_types = {
                     EventType(t) for t in types if t in EventType._value2member_map_
                 }
-            await conn.send_json({
-                "event":            "subscribed",
-                "subscribed_sites": list(conn.subscribed_sites),
-                "subscribed_types": [t.value for t in conn.subscribed_types],
-            })
+            await conn.send_json(
+                {
+                    "event": "subscribed",
+                    "subscribed_sites": list(conn.subscribed_sites),
+                    "subscribed_types": [t.value for t in conn.subscribed_types],
+                }
+            )
             log.debug("hub.subscribed", conn=conn.id, sites=sites)
 
         elif action == "unsubscribe":
@@ -189,12 +199,10 @@ class WebSocketHub:
             await conn.send_json({"event": "unsubscribed"})
 
         elif action == "ping":
-            await conn.send_json({"event": "pong",
-                                   "ts": datetime.now(timezone.utc).isoformat()})
+            await conn.send_json({"event": "pong", "ts": datetime.now(timezone.utc).isoformat()})
 
         else:
-            await conn.send_json({"event": "error",
-                                   "message": f"Unknown action: '{action}'"})
+            await conn.send_json({"event": "error", "message": f"Unknown action: '{action}'"})
 
     # ── Broadcast ─────────────────────────────────────────────────────────────
 
@@ -240,6 +248,7 @@ class WebSocketHub:
 
     async def start_heartbeat(self) -> None:
         """Send periodic pings to all connections to detect stale clients."""
+
         async def _loop():
             while True:
                 await asyncio.sleep(self._heartbeat_sec)
@@ -267,10 +276,10 @@ class WebSocketHub:
     def metrics(self) -> dict[str, Any]:
         return {
             "active_connections": len(self._connections),
-            "tenants":            len(self._by_tenant),
-            "total_received":     self._total_received,
-            "total_sent":         self._total_sent,
-            "connections":        [c.info for c in self._connections.values()],
+            "tenants": len(self._by_tenant),
+            "total_received": self._total_received,
+            "total_sent": self._total_sent,
+            "connections": [c.info for c in self._connections.values()],
         }
 
     @property

@@ -33,51 +33,47 @@ from typing import Any
 
 
 class Scope3Category(int, Enum):
-    PURCHASED_GOODS          =  1
-    CAPITAL_GOODS            =  2
-    FUEL_ENERGY_UPSTREAM     =  3
-    UPSTREAM_TRANSPORT       =  4
-    WASTE_IN_OPERATIONS      =  5
-    BUSINESS_TRAVEL          =  6
-    EMPLOYEE_COMMUTING       =  7
-    UPSTREAM_LEASED_ASSETS   =  8
-    DOWNSTREAM_TRANSPORT     =  9
+    PURCHASED_GOODS = 1
+    CAPITAL_GOODS = 2
+    FUEL_ENERGY_UPSTREAM = 3
+    UPSTREAM_TRANSPORT = 4
+    WASTE_IN_OPERATIONS = 5
+    BUSINESS_TRAVEL = 6
+    EMPLOYEE_COMMUTING = 7
+    UPSTREAM_LEASED_ASSETS = 8
+    DOWNSTREAM_TRANSPORT = 9
     PROCESSING_SOLD_PRODUCTS = 10
-    USE_OF_SOLD_PRODUCTS     = 11
-    END_OF_LIFE              = 12
-    DOWNSTREAM_LEASED        = 13
-    FRANCHISES               = 14
-    INVESTMENTS              = 15
+    USE_OF_SOLD_PRODUCTS = 11
+    END_OF_LIFE = 12
+    DOWNSTREAM_LEASED = 13
+    FRANCHISES = 14
+    INVESTMENTS = 15
 
 
 # ── Emission factors (kg CO₂e per unit) ──────────────────────────────────────
 
 EMISSION_FACTORS: dict[str, float] = {
     # Transport (kg CO₂e per tonne-km)
-    "road_transport_hgv":   0.0762,
-    "road_transport_lgv":   0.2055,
-    "rail_transport":       0.0280,
-    "sea_freight":          0.0116,
-    "air_freight":          0.6020,
-
+    "road_transport_hgv": 0.0762,
+    "road_transport_lgv": 0.2055,
+    "rail_transport": 0.0280,
+    "sea_freight": 0.0116,
+    "air_freight": 0.6020,
     # Business travel (kg CO₂e per km per passenger)
-    "flight_short_haul":    0.2551,
-    "flight_long_haul":     0.1951,
-    "car_average":          0.1703,
-    "rail_passenger":       0.0369,
-
+    "flight_short_haul": 0.2551,
+    "flight_long_haul": 0.1951,
+    "car_average": 0.1703,
+    "rail_passenger": 0.0369,
     # Waste (kg CO₂e per tonne)
-    "landfill_mixed":       467.0,
-    "incineration":         21.3,
-    "recycling_benefit":   -47.0,   # negative = avoided emissions
-
+    "landfill_mixed": 467.0,
+    "incineration": 21.3,
+    "recycling_benefit": -47.0,  # negative = avoided emissions
     # Materials (kg CO₂e per kg)
-    "steel":                1.85,
-    "aluminium":            6.70,
-    "concrete":             0.14,
-    "plastic_hdpe":         1.90,
-    "copper":               3.80,
-
+    "steel": 1.85,
+    "aluminium": 6.70,
+    "concrete": 0.14,
+    "plastic_hdpe": 1.90,
+    "copper": 3.80,
     # Energy upstream (kg CO₂e per kWh of energy purchased)
     "natural_gas_upstream": 0.0184,
     "grid_electricity_upstream_uk": 0.0237,
@@ -87,14 +83,15 @@ EMISSION_FACTORS: dict[str, float] = {
 @dataclass
 class Scope3Activity:
     """A single supply chain activity contributing to Scope 3 emissions."""
-    category:       Scope3Category
-    description:    str
-    quantity:       float           # Amount of activity
-    unit:           str             # "tonne-km", "km", "kg", "kWh"
-    emission_factor: float          # kg CO₂e per unit
-    supplier_id:    str  = ""
-    country:        str  = ""
-    data_quality:   str  = "estimated"  # "measured", "calculated", "estimated"
+
+    category: Scope3Category
+    description: str
+    quantity: float  # Amount of activity
+    unit: str  # "tonne-km", "km", "kg", "kWh"
+    emission_factor: float  # kg CO₂e per unit
+    supplier_id: str = ""
+    country: str = ""
+    data_quality: str = "estimated"  # "measured", "calculated", "estimated"
 
     @property
     def tco2e(self) -> float:
@@ -104,10 +101,11 @@ class Scope3Activity:
 @dataclass
 class Scope3Report:
     """Aggregated Scope 3 emissions report."""
-    entity_id:    str
+
+    entity_id: str
     period_start: datetime
-    period_end:   datetime
-    activities:   list[Scope3Activity] = field(default_factory=list)
+    period_end: datetime
+    activities: list[Scope3Activity] = field(default_factory=list)
 
     @property
     def total_tco2e(self) -> float:
@@ -123,17 +121,15 @@ class Scope3Report:
 
     @property
     def top_categories(self) -> list[tuple[str, float]]:
-        return sorted(
-            self.by_category.items(), key=lambda x: x[1], reverse=True
-        )[:5]
+        return sorted(self.by_category.items(), key=lambda x: x[1], reverse=True)[:5]
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "entity_id":    self.entity_id,
+            "entity_id": self.entity_id,
             "period_start": self.period_start.isoformat(),
-            "period_end":   self.period_end.isoformat(),
-            "total_tco2e":  self.total_tco2e,
-            "by_category":  self.by_category,
+            "period_end": self.period_end.isoformat(),
+            "total_tco2e": self.total_tco2e,
+            "by_category": self.by_category,
             "top_categories": self.top_categories,
             "activity_count": len(self.activities),
             "data_quality_mix": {
@@ -158,111 +154,118 @@ class Scope3Calculator:
         custom_factors: dict[str, float] | None = None,
     ) -> None:
         self.entity_id = entity_id
-        self._factors  = {**EMISSION_FACTORS, **(custom_factors or {})}
+        self._factors = {**EMISSION_FACTORS, **(custom_factors or {})}
         self._activities: list[Scope3Activity] = []
 
     # ── Activity logging ──────────────────────────────────────────────────────
 
     def add_transport(
         self,
-        mode:          str,
-        tonne_km:      float,
-        category:      Scope3Category = Scope3Category.UPSTREAM_TRANSPORT,
-        supplier_id:   str = "",
-        data_quality:  str = "calculated",
-    ) -> "Scope3Calculator":
+        mode: str,
+        tonne_km: float,
+        category: Scope3Category = Scope3Category.UPSTREAM_TRANSPORT,
+        supplier_id: str = "",
+        data_quality: str = "calculated",
+    ) -> Scope3Calculator:
         """Add a freight transport activity."""
         factor = self._factors.get(mode, self._factors["road_transport_hgv"])
-        self._activities.append(Scope3Activity(
-            category=category,
-            description=f"Freight transport ({mode})",
-            quantity=tonne_km,
-            unit="tonne-km",
-            emission_factor=factor,
-            supplier_id=supplier_id,
-            data_quality=data_quality,
-        ))
+        self._activities.append(
+            Scope3Activity(
+                category=category,
+                description=f"Freight transport ({mode})",
+                quantity=tonne_km,
+                unit="tonne-km",
+                emission_factor=factor,
+                supplier_id=supplier_id,
+                data_quality=data_quality,
+            )
+        )
         return self
 
     def add_business_travel(
         self,
-        mode:      str,
-        km:        float,
+        mode: str,
+        km: float,
         passengers: int = 1,
         data_quality: str = "calculated",
-    ) -> "Scope3Calculator":
+    ) -> Scope3Calculator:
         """Add business travel activity (flight, car, rail)."""
         factor = self._factors.get(mode, self._factors["car_average"])
-        self._activities.append(Scope3Activity(
-            category=Scope3Category.BUSINESS_TRAVEL,
-            description=f"Business travel ({mode})",
-            quantity=km * passengers,
-            unit="passenger-km",
-            emission_factor=factor,
-            data_quality=data_quality,
-        ))
+        self._activities.append(
+            Scope3Activity(
+                category=Scope3Category.BUSINESS_TRAVEL,
+                description=f"Business travel ({mode})",
+                quantity=km * passengers,
+                unit="passenger-km",
+                emission_factor=factor,
+                data_quality=data_quality,
+            )
+        )
         return self
 
     def add_waste(
         self,
         treatment: str,
-        tonnes:    float,
+        tonnes: float,
         data_quality: str = "estimated",
-    ) -> "Scope3Calculator":
+    ) -> Scope3Calculator:
         """Add waste treatment activity."""
         factor = self._factors.get(treatment, self._factors["landfill_mixed"])
-        self._activities.append(Scope3Activity(
-            category=Scope3Category.WASTE_IN_OPERATIONS,
-            description=f"Waste ({treatment})",
-            quantity=tonnes,
-            unit="tonnes",
-            emission_factor=factor,
-            data_quality=data_quality,
-        ))
+        self._activities.append(
+            Scope3Activity(
+                category=Scope3Category.WASTE_IN_OPERATIONS,
+                description=f"Waste ({treatment})",
+                quantity=tonnes,
+                unit="tonnes",
+                emission_factor=factor,
+                data_quality=data_quality,
+            )
+        )
         return self
 
     def add_purchased_material(
         self,
-        material:    str,
-        kg:          float,
+        material: str,
+        kg: float,
         supplier_id: str = "",
         data_quality: str = "estimated",
-    ) -> "Scope3Calculator":
+    ) -> Scope3Calculator:
         """Add purchased goods/materials activity."""
         factor = self._factors.get(material, 1.0)
-        self._activities.append(Scope3Activity(
-            category=Scope3Category.PURCHASED_GOODS,
-            description=f"Purchased material ({material})",
-            quantity=kg,
-            unit="kg",
-            emission_factor=factor,
-            supplier_id=supplier_id,
-            data_quality=data_quality,
-        ))
+        self._activities.append(
+            Scope3Activity(
+                category=Scope3Category.PURCHASED_GOODS,
+                description=f"Purchased material ({material})",
+                quantity=kg,
+                unit="kg",
+                emission_factor=factor,
+                supplier_id=supplier_id,
+                data_quality=data_quality,
+            )
+        )
         return self
 
     def add_upstream_energy(
         self,
         energy_type: str,
-        kwh:         float,
+        kwh: float,
         data_quality: str = "calculated",
-    ) -> "Scope3Calculator":
+    ) -> Scope3Calculator:
         """Add upstream emissions from purchased energy (Cat 3)."""
-        factor = self._factors.get(
-            f"{energy_type}_upstream",
-            self._factors["natural_gas_upstream"]
+        factor = self._factors.get(f"{energy_type}_upstream", self._factors["natural_gas_upstream"])
+        self._activities.append(
+            Scope3Activity(
+                category=Scope3Category.FUEL_ENERGY_UPSTREAM,
+                description=f"Upstream energy ({energy_type})",
+                quantity=kwh,
+                unit="kWh",
+                emission_factor=factor,
+                data_quality=data_quality,
+            )
         )
-        self._activities.append(Scope3Activity(
-            category=Scope3Category.FUEL_ENERGY_UPSTREAM,
-            description=f"Upstream energy ({energy_type})",
-            quantity=kwh,
-            unit="kWh",
-            emission_factor=factor,
-            data_quality=data_quality,
-        ))
         return self
 
-    def add_custom_activity(self, activity: Scope3Activity) -> "Scope3Calculator":
+    def add_custom_activity(self, activity: Scope3Activity) -> Scope3Calculator:
         """Add any custom Scope 3 activity."""
         self._activities.append(activity)
         return self
@@ -272,7 +275,7 @@ class Scope3Calculator:
     def generate_report(
         self,
         period_start: datetime | None = None,
-        period_end:   datetime | None = None,
+        period_end: datetime | None = None,
     ) -> Scope3Report:
         """Generate the full Scope 3 report from logged activities."""
         now = datetime.now(timezone.utc)

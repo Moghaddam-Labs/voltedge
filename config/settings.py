@@ -72,7 +72,7 @@ class VoltEdgeSettings(BaseSettings):
 
     # ── Logging ──────────────────────────────────────────────────────────────
     log_level: str = "INFO"
-    log_format: str = "console"   # "console" (dev) | "json" (prod)
+    log_format: str = "console"  # "console" (dev) | "json" (prod)
 
     @field_validator("log_level")
     @classmethod

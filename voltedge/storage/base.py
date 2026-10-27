@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+
 from voltedge.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -24,18 +25,13 @@ log = get_logger(__name__)
 
 def _partition_path(site_id: str, ts: datetime | None = None) -> str:
     ts = ts or datetime.now(timezone.utc)
-    return (
-        f"site_id={site_id}/"
-        f"year={ts.year:04d}/"
-        f"month={ts.month:02d}/"
-        f"day={ts.day:02d}"
-    )
+    return f"site_id={site_id}/year={ts.year:04d}/month={ts.month:02d}/day={ts.day:02d}"
 
 
 # ── Abstract interface ─────────────────────────────────────────────────────────
 
-class BaseStore(abc.ABC):
 
+class BaseStore(abc.ABC):
     @abc.abstractmethod
     def write(self, df: pd.DataFrame, site_id: str, layer: str = "raw") -> str:
         """Persist a DataFrame. Returns the URI/path written to."""
@@ -53,6 +49,7 @@ class BaseStore(abc.ABC):
 
 
 # ── Local filesystem implementation ───────────────────────────────────────────
+
 
 class LocalStore(BaseStore):
     """

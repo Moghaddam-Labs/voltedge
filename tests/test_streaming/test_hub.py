@@ -1,21 +1,25 @@
 """Tests for WebSocketHub — uses starlette.testclient WebSocket support."""
+
 from __future__ import annotations
+
 import asyncio
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
-from voltedge.streaming.hub import Connection, WebSocketHub
 from voltedge.streaming.events import EnergyEvent, EventType
+from voltedge.streaming.hub import Connection, WebSocketHub
 
 SITE = "HUB-TEST-01"
-TS   = "2026-05-15T14:00:00+00:00"
+TS = "2026-05-15T14:00:00+00:00"
 
 
 def _event(event_type=EventType.PROCESSED, site_id=SITE, kwh=100.0):
     return EnergyEvent(
-        event_type=event_type, site_id=site_id,
-        sensor_id="M1", timestamp=TS, kwh=kwh,
+        event_type=event_type,
+        site_id=site_id,
+        sensor_id="M1",
+        timestamp=TS,
+        kwh=kwh,
     )
 
 
@@ -23,14 +27,16 @@ def _mock_ws():
     """Mock WebSocket that records sent messages."""
     ws = AsyncMock()
     ws.sent = []
+
     async def send_json(data):
         ws.sent.append(data)
+
     ws.send_json.side_effect = send_json
     return ws
 
 
 def _make_conn(hub=None, tenant="test-tenant"):
-    ws  = _mock_ws()
+    ws = _mock_ws()
     hub = hub or WebSocketHub()
     conn = Connection(ws, tenant_id=tenant)
     hub._connections[conn.id] = conn
@@ -40,34 +46,35 @@ def _make_conn(hub=None, tenant="test-tenant"):
 
 # ── Connection ────────────────────────────────────────────────────────────────
 
+
 def test_connection_has_id():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     assert len(conn.id) == 8
 
 
 def test_connection_matches_all_sites_when_none_subscribed():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     assert conn.matches(_event())
 
 
 def test_connection_matches_subscribed_site():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     conn.subscribed_sites = {SITE}
     assert conn.matches(_event(site_id=SITE))
 
 
 def test_connection_does_not_match_other_site():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     conn.subscribed_sites = {"OTHER-SITE"}
     assert not conn.matches(_event(site_id=SITE))
 
 
 def test_connection_filters_by_event_type():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     conn.subscribed_types = {EventType.ANOMALY}
     assert not conn.matches(_event(event_type=EventType.PROCESSED))
@@ -75,7 +82,7 @@ def test_connection_filters_by_event_type():
 
 
 def test_connection_info_keys():
-    ws   = _mock_ws()
+    ws = _mock_ws()
     conn = Connection(ws)
     info = conn.info
     for k in ("connection_id", "tenant_id", "subscribed_sites", "messages_sent", "alive"):
@@ -84,10 +91,11 @@ def test_connection_info_keys():
 
 # ── Hub connection management ─────────────────────────────────────────────────
 
+
 def test_hub_connect_registers_connection():
     async def run():
         hub = WebSocketHub()
-        ws  = _mock_ws()
+        ws = _mock_ws()
         conn = Connection(ws, tenant_id="t1")
         hub._connections[conn.id] = conn
         hub._by_tenant["t1"].add(conn.id)
@@ -110,7 +118,7 @@ def test_hub_disconnect_removes_connection():
 def test_hub_disconnect_unknown_id_is_noop():
     async def run():
         hub = WebSocketHub()
-        await hub.disconnect("nonexistent")   # no error
+        await hub.disconnect("nonexistent")  # no error
 
     asyncio.run(run())
 
@@ -138,6 +146,7 @@ def test_hub_connection_limit_per_tenant():
 
 
 # ── Broadcast ─────────────────────────────────────────────────────────────────
+
 
 def test_broadcast_to_matching_connection():
     async def run():
@@ -179,7 +188,7 @@ def test_broadcast_payload_contains_event_dict():
         return ws.sent
 
     sent = asyncio.run(run())
-    assert sent[0]["payload"]["kwh"] == 250.0   # directly inserted, no preamble
+    assert sent[0]["payload"]["kwh"] == 250.0  # directly inserted, no preamble
 
 
 def test_broadcast_removes_dead_connection():
@@ -205,6 +214,7 @@ def test_broadcast_many():
 
 
 # ── Control messages ──────────────────────────────────────────────────────────
+
 
 def test_handle_subscribe_message():
     async def run():
@@ -251,6 +261,7 @@ def test_handle_unknown_action():
 
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
+
 
 def test_metrics_structure():
     hub = WebSocketHub()

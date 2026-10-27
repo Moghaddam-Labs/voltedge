@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine
@@ -30,6 +29,7 @@ def audit(db):
 
 # ── Write events ──────────────────────────────────────────────────────────────
 
+
 def test_log_event_returns_entry(audit):
     entry = audit.log_event(AuditEventType.AUTH_LOGIN_SUCCESS, actor="alice")
     assert entry.id is not None
@@ -39,8 +39,10 @@ def test_log_event_returns_entry(audit):
 
 def test_log_event_stores_details(audit):
     audit.log_event(
-        AuditEventType.DATA_READ, actor="bob",
-        resource="sites", action="read",
+        AuditEventType.DATA_READ,
+        actor="bob",
+        resource="sites",
+        action="read",
         site_id="SITE-01",
         details={"rows_returned": 500},
     )
@@ -67,8 +69,10 @@ def test_log_event_records_timestamp(audit):
 
 def test_log_event_with_ip_and_user_agent(audit):
     audit.log_event(
-        AuditEventType.AUTH_LOGIN_SUCCESS, actor="alice",
-        ip_address="192.168.1.10", user_agent="VoltEdge-CLI/1.0",
+        AuditEventType.AUTH_LOGIN_SUCCESS,
+        actor="alice",
+        ip_address="192.168.1.10",
+        user_agent="VoltEdge-CLI/1.0",
     )
     entry = audit.recent(1)[0]
     assert entry.ip_address == "192.168.1.10"
@@ -82,6 +86,7 @@ def test_all_event_types_can_be_logged(audit):
 
 
 # ── Chain integrity ───────────────────────────────────────────────────────────
+
 
 def test_chain_starts_from_genesis(audit):
     result = audit.verify_chain_integrity()
@@ -124,6 +129,7 @@ def test_chain_hash_is_64_hex_chars(audit):
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
+
 
 def test_query_by_event_type(audit):
     audit.log_event(AuditEventType.AUTH_LOGIN_SUCCESS, actor="alice")
@@ -169,6 +175,7 @@ def test_query_returns_newest_first(audit):
 
 # ── Actor summary ─────────────────────────────────────────────────────────────
 
+
 def test_actor_summary_counts_correctly(audit):
     audit.log_event(AuditEventType.AUTH_LOGIN_SUCCESS, actor="alice")
     audit.log_event(AuditEventType.DATA_READ, actor="alice")
@@ -184,17 +191,23 @@ def test_actor_summary_empty_for_unknown(audit):
 
 # ── CSV export ────────────────────────────────────────────────────────────────
 
+
 def test_csv_export_has_header(audit):
     csv_str = audit.export_csv()
     assert csv_str.startswith("id,timestamp,event_type")
 
 
 def test_csv_export_contains_events(audit):
-    audit.log_event(AuditEventType.DATA_EXPORT, actor="alice",
-                    resource="esg", action="export", site_id="SITE-01")
+    audit.log_event(
+        AuditEventType.DATA_EXPORT,
+        actor="alice",
+        resource="esg",
+        action="export",
+        site_id="SITE-01",
+    )
     csv_str = audit.export_csv()
-    lines = [l for l in csv_str.strip().split("\n") if l]
-    assert len(lines) == 2   # header + 1 data row
+    lines = [line for line in csv_str.strip().split("\n") if line]
+    assert len(lines) == 2  # header + 1 data row
 
 
 def test_csv_export_contains_event_type(audit):
@@ -207,6 +220,6 @@ def test_csv_is_chronological(audit):
     audit.log_event(AuditEventType.AUTH_LOGIN_SUCCESS, actor="first")
     audit.log_event(AuditEventType.DATA_READ, actor="second")
     csv_str = audit.export_csv()
-    lines = csv_str.strip().split("\n")[1:]   # skip header
+    lines = csv_str.strip().split("\n")[1:]  # skip header
     assert "first" in lines[0]
     assert "second" in lines[1]

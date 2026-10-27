@@ -37,6 +37,7 @@ from typing import Any
 
 try:
     import paho.mqtt.client as mqtt
+
     PAHO_AVAILABLE = True
 except ImportError:
     PAHO_AVAILABLE = False
@@ -105,8 +106,7 @@ class MQTTConnector(BaseConnector):
         """
         if not PAHO_AVAILABLE:
             raise RuntimeError(
-                "paho-mqtt is required for MQTTConnector. "
-                "Install it with: pip install paho-mqtt"
+                "paho-mqtt is required for MQTTConnector. Install it with: pip install paho-mqtt"
             )
 
         self._connected.clear()
@@ -119,8 +119,8 @@ class MQTTConnector(BaseConnector):
         if self.tls:
             client.tls_set()
 
-        client.on_connect    = self._on_connect
-        client.on_message    = self._on_message
+        client.on_connect = self._on_connect
+        client.on_message = self._on_message
         client.on_disconnect = self._on_disconnect
 
         log.info(
@@ -145,15 +145,15 @@ class MQTTConnector(BaseConnector):
         """Map MQTT JSON payload to EnergyReading fields."""
         return {
             "sensor_id": raw.get("sensor", f"{self.site_id}-MQTT"),
-            "timestamp":  raw.get("ts", datetime.now(timezone.utc).isoformat()),
-            "kwh":        float(raw.get("kwh", 0.0)),
-            "voltage_v":  raw.get("voltage"),
-            "current_a":  raw.get("current"),
+            "timestamp": raw.get("ts", datetime.now(timezone.utc).isoformat()),
+            "kwh": float(raw.get("kwh", 0.0)),
+            "voltage_v": raw.get("voltage"),
+            "current_a": raw.get("current"),
             "power_factor": raw.get("pf"),
             "temperature_c": raw.get("temp_c"),
-            "metadata":   {
+            "metadata": {
                 "source": "mqtt",
-                "topic":  self.topic,
+                "topic": self.topic,
                 "raw_keys": list(raw.keys()),
             },
         }

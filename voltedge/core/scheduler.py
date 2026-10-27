@@ -17,8 +17,8 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -129,8 +129,7 @@ class ModelScheduler:
             )
             metrics = detector.train(df)
             detector.save(metrics)
-            log.info("scheduler.anomaly_retrained", site=site_id,
-                     rows=metrics.get("training_rows"))
+            log.info("scheduler.anomaly_retrained", site=site_id, rows=metrics.get("training_rows"))
             if self._on_retrain:
                 self._on_retrain(site_id, "anomaly", metrics)
         except Exception as exc:
@@ -145,15 +144,12 @@ class ModelScheduler:
             "running": self.is_running,
             "sites": self._sites,
             "retrain_interval_hours": self._retrain_hours,
-            "last_run": {
-                sid: ts.isoformat() for sid, ts in self._last_run.items()
-            },
+            "last_run": {sid: ts.isoformat() for sid, ts in self._last_run.items()},
             "jobs": [
                 {
                     "id": job.id,
                     "name": job.name,
-                    "next_run": job.next_run_time.isoformat()
-                    if job.next_run_time else None,
+                    "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
                 }
                 for job in self._scheduler.get_jobs()
             ],

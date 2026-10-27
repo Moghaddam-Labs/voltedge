@@ -1,10 +1,18 @@
 """Tests for carbon credit registry."""
+
 from __future__ import annotations
+
 from datetime import datetime, timezone
+
 import pytest
+
 from voltedge.carbon.registry import (
-    CarbonCredit, CreditClaim, CreditStatus, MockRegistry,
-    RegistryType, VerraRegistry,
+    CarbonCredit,
+    CreditClaim,
+    CreditStatus,
+    MockRegistry,
+    RegistryType,
+    VerraRegistry,
 )
 
 TS = datetime(2026, 5, 1, tzinfo=timezone.utc)
@@ -12,56 +20,63 @@ TS = datetime(2026, 5, 1, tzinfo=timezone.utc)
 
 def _claim(**kwargs):
     defaults = dict(
-        site_id="SITE-01", project_id="IREC-003",
-        period_start=TS, period_end=TS,
-        kwh_renewable=1000.0, co2e_avoided_t=0.207,
+        site_id="SITE-01",
+        project_id="IREC-003",
+        period_start=TS,
+        period_end=TS,
+        kwh_renewable=1000.0,
+        co2e_avoided_t=0.207,
     )
     return CreditClaim(**{**defaults, **kwargs})
 
 
 # ── CarbonCredit ──────────────────────────────────────────────────────────────
 
+
 def test_credit_is_not_retired_by_default():
-    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test",
-                     2026, 1.0, CreditStatus.ISSUED)
+    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test", 2026, 1.0, CreditStatus.ISSUED)
     assert not c.is_retired
 
+
 def test_credit_retire_returns_new():
-    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test",
-                     2026, 1.0, CreditStatus.ISSUED)
+    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test", 2026, 1.0, CreditStatus.ISSUED)
     retired = c.retire("Shell plc")
     assert retired.is_retired
     assert retired.retired_by == "Shell plc"
-    assert c.status == CreditStatus.ISSUED   # original unchanged
+    assert c.status == CreditStatus.ISSUED  # original unchanged
+
 
 def test_credit_to_dict_has_keys():
-    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test",
-                     2026, 1.0, CreditStatus.ISSUED)
+    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test", 2026, 1.0, CreditStatus.ISSUED)
     d = c.to_dict()
-    for k in ("credit_id","registry","quantity_tco2e","status","vintage_year"):
+    for k in ("credit_id", "registry", "quantity_tco2e", "status", "vintage_year"):
         assert k in d
 
+
 def test_credit_retire_sets_timestamp():
-    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test",
-                     2026, 1.0, CreditStatus.ISSUED)
+    c = CarbonCredit("C1", RegistryType.MOCK, "P1", "Test", 2026, 1.0, CreditStatus.ISSUED)
     retired = c.retire("Test Entity")
     assert retired.retired_at is not None
 
 
 # ── CreditClaim ───────────────────────────────────────────────────────────────
 
+
 def test_claim_has_id():
     c = _claim()
-    assert len(c.claim_id) == 36   # UUID4
+    assert len(c.claim_id) == 36  # UUID4
+
 
 def test_claim_evidence_digest():
     c = _claim().evidence_digest("some evidence data")
-    assert len(c.evidence_hash) == 64    # SHA-256 hex
+    assert len(c.evidence_hash) == 64  # SHA-256 hex
+
 
 def test_claim_evidence_deterministic():
     c1 = _claim().evidence_digest("same data")
     c2 = _claim().evidence_digest("same data")
     assert c1.evidence_hash == c2.evidence_hash
+
 
 def test_claim_different_data_different_hash():
     c1 = _claim().evidence_digest("data A")
@@ -70,6 +85,7 @@ def test_claim_different_data_different_hash():
 
 
 # ── MockRegistry ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def registry():
@@ -124,9 +140,9 @@ def test_list_credits_after_submit(registry):
 def test_list_credits_filter_by_status(registry):
     claim = _claim()
     updated = registry.submit_claim(claim)
-    issued  = registry.list_credits(status=CreditStatus.ISSUED)
+    issued = registry.list_credits(status=CreditStatus.ISSUED)
     retired = registry.list_credits(status=CreditStatus.RETIRED)
-    assert len(issued)  == 1
+    assert len(issued) == 1
     assert len(retired) == 0
 
 
@@ -186,8 +202,9 @@ def test_portfolio_value_retired_not_counted(registry):
 
 # ── VerraRegistry (dry_run) ───────────────────────────────────────────────────
 
+
 def test_verra_dry_run_submit_returns_pending():
-    reg   = VerraRegistry(dry_run=True)
+    reg = VerraRegistry(dry_run=True)
     claim = _claim()
     updated = reg.submit_claim(claim)
     assert updated.status == CreditStatus.PENDING
@@ -207,7 +224,8 @@ def test_verra_dry_run_get_returns_none():
 
 # (these live here since they depend on fixtures from this file)
 import asyncio
-from voltedge.carbon.credits import CreditIssuanceService, IssuanceResult
+
+from voltedge.carbon.credits import CreditIssuanceService
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
 
@@ -250,6 +268,7 @@ def test_issue_from_data_portfolio_value_positive(issuance_svc, sample_df):
 
 def test_issue_from_empty_df_fails(issuance_svc):
     import pandas as pd
+
     r = issuance_svc.issue_from_data(pd.DataFrame(), "EMPTY-SITE")
     assert r.success is False
 
@@ -276,7 +295,7 @@ def test_portfolio_summary_structure(issuance_svc, sample_df):
 
 def test_avoided_emissions_calculation(issuance_svc):
     kg = issuance_svc.avoided_emissions_kg(1000.0)
-    assert kg == pytest.approx(207.0)   # 1000 kWh × 0.207 kg/kWh
+    assert kg == pytest.approx(207.0)  # 1000 kWh × 0.207 kg/kWh
 
 
 def test_credit_value_usd(issuance_svc):

@@ -13,13 +13,12 @@ from datetime import datetime
 
 import pandas as pd
 
-
 # ── Emission factors (kgCO2e per kWh) ────────────────────────────────────────
 # Source: IEA 2023 / DESNZ UK Grid Intensity
 GRID_EMISSION_FACTORS: dict[str, float] = {
-    "GB": 0.207,    # UK — 2023 average
+    "GB": 0.207,  # UK — 2023 average
     "DE": 0.385,
-    "FR": 0.052,    # France — high nuclear share
+    "FR": 0.052,  # France — high nuclear share
     "US": 0.386,
     "CN": 0.581,
     "NL": 0.270,
@@ -38,10 +37,10 @@ class ESGMetrics:
     total_co2_kg: float
     carbon_intensity_kgco2_per_kwh: float
     energy_intensity_kwh_per_unit: float | None  # Unit depends on context (m², revenue, etc.)
-    renewable_fraction: float          # 0–1
+    renewable_fraction: float  # 0–1
     peak_demand_kw: float
     avg_power_factor: float | None
-    gri_302_1: float                   # GRI 302-1: Energy consumption within org (GJ)
+    gri_302_1: float  # GRI 302-1: Energy consumption within org (GJ)
     scope_2_location_based_tco2e: float
     scope_2_market_based_tco2e: float  # Uses supplier-specific emission factor if known
 
@@ -100,9 +99,7 @@ class ESGCalculator:
         peak_demand = df["kwh"].max()
         avg_pf = df["power_factor"].mean() if "power_factor" in df.columns else None
 
-        energy_intensity = (
-            total_kwh / self.floor_area_m2 if self.floor_area_m2 else None
-        )
+        energy_intensity = total_kwh / self.floor_area_m2 if self.floor_area_m2 else None
 
         return ESGMetrics(
             site_id=site_id,
@@ -120,9 +117,7 @@ class ESGCalculator:
             scope_2_market_based_tco2e=round(scope2_market, 4),
         )
 
-    def summarise_sites(
-        self, site_metrics: list[ESGMetrics]
-    ) -> dict[str, float]:
+    def summarise_sites(self, site_metrics: list[ESGMetrics]) -> dict[str, float]:
         """Roll up ESG metrics across multiple sites for portfolio-level reporting."""
         return {
             "total_kwh": sum(m.total_kwh for m in site_metrics),
@@ -132,6 +127,7 @@ class ESGCalculator:
             "gri_302_1_gj": sum(m.gri_302_1 for m in site_metrics),
             "avg_renewable_fraction": (
                 sum(m.renewable_fraction for m in site_metrics) / len(site_metrics)
-                if site_metrics else 0.0
+                if site_metrics
+                else 0.0
             ),
         }

@@ -6,13 +6,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from voltedge.rbac.models import Base, Permission, Role, User
+from voltedge.rbac.models import Base, Permission, Role
 from voltedge.rbac.service import (
-    RBACService, PERMISSIONS, ROLES, seed_roles_and_permissions,
+    PERMISSIONS,
+    ROLES,
+    RBACService,
+    seed_roles_and_permissions,
 )
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def db():
@@ -33,6 +36,7 @@ def svc(db):
 
 # ── Seed tests ────────────────────────────────────────────────────────────────
 
+
 def test_seed_creates_all_permissions(db):
     perms = db.query(Permission).all()
     assert len(perms) == len(PERMISSIONS)
@@ -44,8 +48,8 @@ def test_seed_creates_all_roles(db):
 
 
 def test_seed_is_idempotent(db):
-    seed_roles_and_permissions(db)   # Second call
-    seed_roles_and_permissions(db)   # Third call
+    seed_roles_and_permissions(db)  # Second call
+    seed_roles_and_permissions(db)  # Third call
     perms = db.query(Permission).all()
     assert len(perms) == len(PERMISSIONS)
 
@@ -78,6 +82,7 @@ def test_analyst_can_export_esg(db):
 
 
 # ── User CRUD ─────────────────────────────────────────────────────────────────
+
 
 def test_create_user_returns_user(svc):
     user = svc.create_user("alice", "alice@example.com", "secret123", ["analyst"])
@@ -123,6 +128,7 @@ def test_password_is_hashed(svc):
 
 # ── Authentication ────────────────────────────────────────────────────────────
 
+
 def test_authenticate_correct_password(svc):
     svc.create_user("grace", "grace@example.com", "mypass123")
     user = svc.authenticate("grace", "mypass123")
@@ -141,12 +147,13 @@ def test_authenticate_unknown_user(svc):
 
 # ── Role assignment ───────────────────────────────────────────────────────────
 
+
 def test_assign_role(svc):
     svc.create_user("ivan", "ivan@example.com", "pass", ["viewer"])
     user = svc.assign_role("ivan", "analyst")
     role_names = {r.name for r in user.roles}
     assert "analyst" in role_names
-    assert "viewer" in role_names   # Original role retained
+    assert "viewer" in role_names  # Original role retained
 
 
 def test_assign_same_role_is_idempotent(svc):
@@ -172,6 +179,7 @@ def test_assign_unknown_role_raises(svc):
 
 
 # ── Permission checking ───────────────────────────────────────────────────────
+
 
 def test_check_permission_true_for_valid(svc):
     svc.create_user("mike", "mike@example.com", "pass", ["operator"])
@@ -204,6 +212,7 @@ def test_user_all_permissions_set(svc):
 
 # ── Deactivation ──────────────────────────────────────────────────────────────
 
+
 def test_deactivate_user(svc):
     svc.create_user("quinn", "quinn@example.com", "pass")
     svc.deactivate_user("quinn")
@@ -222,6 +231,7 @@ def test_list_users_excludes_inactive(svc):
 
 # ── Role listing ──────────────────────────────────────────────────────────────
 
+
 def test_list_roles_returns_all(svc):
     roles = svc.list_roles()
     role_names = {r.name for r in roles}
@@ -236,6 +246,6 @@ def test_privilege_hierarchy(svc):
         role = svc.db.query(Role).filter_by(name=rname).first()
         role_perm_counts[rname] = len(role.permissions)
 
-    assert role_perm_counts["viewer"]   < role_perm_counts["analyst"]
-    assert role_perm_counts["analyst"]  < role_perm_counts["operator"]
+    assert role_perm_counts["viewer"] < role_perm_counts["analyst"]
+    assert role_perm_counts["analyst"] < role_perm_counts["operator"]
     assert role_perm_counts["operator"] < role_perm_counts["admin"]

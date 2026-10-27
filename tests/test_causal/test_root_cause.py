@@ -1,13 +1,15 @@
 """Tests for root-cause analyser."""
+
 from __future__ import annotations
+
 import asyncio
-from datetime import datetime, timedelta, timezone
+
 import pytest
-import pandas as pd
 
 from voltedge.causal.graph import CausalGraphBuilder
 from voltedge.causal.root_cause import (
-    CausalFactor, RootCauseAnalyser, RootCauseReport,
+    CausalFactor,
+    RootCauseAnalyser,
 )
 from voltedge.ingestion.simulators import SimulatedSiteConnector
 from voltedge.processing.transformer import EnergyTransformer
@@ -39,19 +41,29 @@ def report(df_and_graph, analyser):
 
 # ── CausalFactor ──────────────────────────────────────────────────────────────
 
+
 def test_factor_to_dict_keys():
     f = CausalFactor(
-        variable="temperature_c", causal_strength=0.6,
-        deviation_z=2.1, contribution_score=1.26,
+        variable="temperature_c",
+        causal_strength=0.6,
+        deviation_z=2.1,
+        contribution_score=1.26,
         direction="increase",
     )
     d = f.to_dict()
-    for k in ("variable", "causal_strength", "deviation_z",
-              "contribution_score", "direction", "depth"):
+    for k in (
+        "variable",
+        "causal_strength",
+        "deviation_z",
+        "contribution_score",
+        "direction",
+        "depth",
+    ):
         assert k in d
 
 
 # ── RootCauseReport ───────────────────────────────────────────────────────────
+
 
 def test_report_has_site_id(report):
     assert report.site_id == SITE
@@ -77,8 +89,14 @@ def test_report_confidence_valid(report):
 
 def test_report_to_dict_keys(report):
     d = report.to_dict()
-    for k in ("site_id", "anomaly_timestamp", "narrative",
-              "causal_factors", "confidence", "recommendations"):
+    for k in (
+        "site_id",
+        "anomaly_timestamp",
+        "narrative",
+        "causal_factors",
+        "confidence",
+        "recommendations",
+    ):
         assert k in d
 
 
@@ -104,6 +122,7 @@ def test_report_deviation_pct_numeric(report):
 
 # ── Analyser ──────────────────────────────────────────────────────────────────
 
+
 def test_analyser_handles_missing_timestamp(df_and_graph, analyser):
     df, _ = df_and_graph
     # A timestamp that doesn't exist — should find the closest
@@ -123,7 +142,7 @@ def test_analyser_narrative_contains_variable(report):
 def test_analyse_period_returns_list(df_and_graph, analyser):
     df, _ = df_and_graph
     start = df["timestamp"].iloc[50]
-    end   = df["timestamp"].iloc[250]
+    end = df["timestamp"].iloc[250]
     reports = analyser.analyse_period(df, start, end, top_n=3)
     assert isinstance(reports, list)
     assert len(reports) <= 3
@@ -132,12 +151,13 @@ def test_analyse_period_returns_list(df_and_graph, analyser):
 def test_analyse_period_all_correct_site(df_and_graph, analyser):
     df, _ = df_and_graph
     start = df["timestamp"].iloc[50]
-    end   = df["timestamp"].iloc[200]
+    end = df["timestamp"].iloc[200]
     reports = analyser.analyse_period(df, start, end, top_n=5)
     assert all(r.site_id == SITE for r in reports)
 
 
 # ── Confidence assessment ─────────────────────────────────────────────────────
+
 
 def test_low_confidence_few_samples():
     c = RootCauseAnalyser._assess_confidence([], n_samples=10)
@@ -151,6 +171,7 @@ def test_high_confidence_strong_factor():
 
 
 # ── Recommendations ───────────────────────────────────────────────────────────
+
 
 def test_recommendations_flat_line():
     recs = RootCauseAnalyser._build_recommendations([], "flat_line_sensor")

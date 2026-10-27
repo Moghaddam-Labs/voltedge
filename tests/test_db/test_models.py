@@ -1,19 +1,19 @@
 """Tests for database models and schema."""
+
 from __future__ import annotations
 
-import os
 import pytest
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
 from voltedge.db.database import Base
-from voltedge.db.models import EnergyReading, AnomalyEvent
+from voltedge.db.models import AnomalyEvent, EnergyReading
 
 
 @pytest.fixture()
 def tmp_session(tmp_path):
     db_path = str(tmp_path / "test_energy.db")
-    engine  = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     with Session() as s:
@@ -59,6 +59,7 @@ def test_anomaly_event_insert(tmp_session):
 def test_unique_constraint(tmp_session):
     """Inserting duplicate (site_id, timestamp) should fail."""
     from sqlalchemy.exc import IntegrityError
+
     r1 = EnergyReading(site_id="S1", timestamp="2026-01-01T00:00:00+00:00", kwh=100.0)
     r2 = EnergyReading(site_id="S1", timestamp="2026-01-01T00:00:00+00:00", kwh=200.0)
     tmp_session.add(r1)

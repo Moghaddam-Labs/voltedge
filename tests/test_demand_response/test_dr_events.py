@@ -1,14 +1,20 @@
 """Tests for demand response events, dispatcher, and grid connectors."""
+
 from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
+
 import pytest
 
+from voltedge.demand_response.dispatcher import SHEDDABLE_ASSETS, DemandResponseDispatcher
 from voltedge.demand_response.events import (
-    DREvent, DREventStatus, DREventType, SiteResponse, SiteResponseStatus,
+    DREvent,
+    DREventStatus,
+    DREventType,
+    SiteResponse,
+    SiteResponseStatus,
 )
-from voltedge.demand_response.dispatcher import DemandResponseDispatcher, SHEDDABLE_ASSETS
 from voltedge.demand_response.grid_connectors import MockGridConnector
 
 NOW = datetime.now(timezone.utc)
@@ -34,18 +40,22 @@ def _event(**kwargs) -> DREvent:
 
 # ── DREvent ───────────────────────────────────────────────────────────────────
 
+
 def test_event_duration_minutes():
     evt = _event()
     assert evt.duration_minutes == pytest.approx(60.0)
+
 
 def test_event_potential_revenue():
     # 100 kW × 1h × £0.45/kWh = £45
     evt = _event(target_reduction_kw=100.0, clearing_price_kwh=0.45)
     assert evt.potential_revenue == pytest.approx(45.0)
 
+
 def test_event_is_active_false_for_future():
     evt = _event(start_time=NOW + timedelta(hours=5))
     assert evt.is_active is False
+
 
 def test_event_is_active_true_for_current():
     evt = _event(
@@ -54,37 +64,51 @@ def test_event_is_active_true_for_current():
     )
     assert evt.is_active is True
 
+
 def test_event_mandatory_emergency():
     evt = _event(event_type=DREventType.EMERGENCY, mandatory=True)
     assert evt.mandatory is True
 
+
 def test_event_to_dict_keys():
     d = _event().to_dict()
-    for k in ("event_id","event_type","duration_minutes","target_reduction_kw","potential_revenue"):
+    for k in (
+        "event_id",
+        "event_type",
+        "duration_minutes",
+        "target_reduction_kw",
+        "potential_revenue",
+    ):
         assert k in d
 
 
 # ── SiteResponse ──────────────────────────────────────────────────────────────
 
+
 def test_site_response_reduction_pct():
     r = SiteResponse(
-        event_id="E1", site_id="S1",
-        baseline_kw=100.0, response_kw=70.0,
+        event_id="E1",
+        site_id="S1",
+        baseline_kw=100.0,
+        response_kw=70.0,
         actual_reduction_kw=30.0,
     )
     assert r.reduction_pct == pytest.approx(30.0)
+
 
 def test_site_response_net_revenue():
     r = SiteResponse(revenue_earned=50.0, penalty_charged=5.0)
     assert r.net_revenue == pytest.approx(45.0)
 
+
 def test_site_response_to_dict_keys():
     d = SiteResponse().to_dict()
-    for k in ("response_id","status","revenue_earned","net_revenue","reduction_pct"):
+    for k in ("response_id", "status", "revenue_earned", "net_revenue", "reduction_pct"):
         assert k in d
 
 
 # ── DemandResponseDispatcher ──────────────────────────────────────────────────
+
 
 @pytest.fixture
 def dispatcher():
@@ -123,7 +147,7 @@ def test_shed_plan_does_not_exceed_target(dispatcher):
     evt = _event(target_reduction_kw=target)
     result = dispatcher.evaluate_event(evt, "SITE-01")
     total_kw = sum(a["target_kw"] for a in result["shed_plan"])
-    assert total_kw <= target + 0.5   # allow rounding
+    assert total_kw <= target + 0.5  # allow rounding
 
 
 def test_opt_in_creates_response(dispatcher):
@@ -163,6 +187,7 @@ def test_settle_without_response_raises(dispatcher):
 
 def test_settle_with_dataframe(dispatcher):
     import pandas as pd
+
     evt = _event(
         start_time=NOW - timedelta(hours=2),
         end_time=NOW - timedelta(hours=1),
@@ -193,21 +218,22 @@ def test_portfolio_revenue_structure(dispatcher):
 
 def test_portfolio_revenue_after_settlement(dispatcher):
     import pandas as pd
+
     evt = _event(
         start_time=NOW - timedelta(hours=2),
         end_time=NOW - timedelta(hours=1),
     )
     dispatcher.opt_in(evt, "SITE-01", committed_kw=50.0)
-    df = pd.DataFrame([
-        {"timestamp": evt.start_time + timedelta(minutes=i), "kwh": 50.0}
-        for i in range(60)
-    ])
+    df = pd.DataFrame(
+        [{"timestamp": evt.start_time + timedelta(minutes=i), "kwh": 50.0} for i in range(60)]
+    )
     dispatcher.settle_event(evt, "SITE-01", actual_df=df)
     summary = dispatcher.portfolio_revenue()
     assert summary["events_responded"] == 1
 
 
 # ── MockGridConnector ─────────────────────────────────────────────────────────
+
 
 def test_mock_connector_fetch_events():
     conn = MockGridConnector(events_per_day=3, seed=1)
@@ -256,6 +282,7 @@ def test_mock_watch_yields_events():
             if len(received) >= 2:
                 break
         return received
+
     evts = asyncio.run(run())
     assert len(evts) == 2
     assert all(isinstance(e, DREvent) for e in evts)
@@ -263,14 +290,17 @@ def test_mock_watch_yields_events():
 
 # ── SHEDDABLE_ASSETS catalogue ────────────────────────────────────────────────
 
+
 def test_sheddable_assets_have_required_fields():
     for asset in SHEDDABLE_ASSETS:
         for k in ("type", "priority", "typical_kw", "command"):
             assert k in asset, f"Missing {k} in asset {asset}"
 
+
 def test_sheddable_assets_priorities_unique():
     priorities = [a["priority"] for a in SHEDDABLE_ASSETS]
     assert len(priorities) == len(set(priorities))
+
 
 def test_sheddable_assets_ordered_by_priority():
     priorities = [a["priority"] for a in SHEDDABLE_ASSETS]
