@@ -147,6 +147,8 @@ The platform ships with 90 days of pre-seeded data for four realistic demo sites
 
 Each site has 4 deliberate anomaly events seeded across the 90-day window for demonstration purposes.
 
+The anomaly detector is evaluated on 30 days of unseen data across all four sites: it catches 94% of planted anomalies. See [docs/ANOMALY_EVALUATION.md](docs/ANOMALY_EVALUATION.md) for the method and results.
+
 ---
 
 ## Licence

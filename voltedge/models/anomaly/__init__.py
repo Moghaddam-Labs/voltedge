@@ -266,4 +266,23 @@ class AnomalyDetector:
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
             df = df.sort_values("timestamp").reset_index(drop=True)
+        return AnomalyDetector._use_raw_readings(df)
+
+    @staticmethod
+    def _use_raw_readings(df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Rebuild the kWh features from the reading before outlier cleaning.
+
+        EnergyTransformer replaces extreme readings with interpolated values so
+        forecasts and charts stay smooth. That also hid the largest spikes from
+        this detector. When `kwh_raw` is present, score the real readings instead.
+        """
+        if "kwh_raw" not in df.columns:
+            return df
+        kwh = df["kwh_raw"].fillna(df["kwh"]) if "kwh" in df.columns else df["kwh_raw"]
+        df["kwh"] = kwh
+        df["kwh_delta"] = kwh.diff()
+        df["kwh_pct_change"] = kwh.pct_change().replace([np.inf, -np.inf], np.nan)
+        df["kwh_roll_mean_24h"] = kwh.rolling(24, min_periods=1).mean()
+        df["kwh_roll_std_24h"] = kwh.rolling(24, min_periods=1).std().fillna(0.0)
         return df

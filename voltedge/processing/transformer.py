@@ -58,11 +58,16 @@ class EnergyTransformer:
         - Negative kWh values → NaN
         - Extreme outliers (>4 IQR from median) → NaN
         - Interpolate gaps up to 3 consecutive NaN hours
+
+        The reading before outlier removal is kept in `kwh_raw`. Forecasting
+        and charts use the cleaned `kwh`, but anomaly detection needs the
+        real spikes, because those are exactly what it is looking for.
         """
         df = df.copy()
 
         # Negative energy is physically impossible
         df.loc[df["kwh"] < 0, "kwh"] = np.nan
+        df["kwh_raw"] = df["kwh"]
 
         # IQR-based outlier removal
         q1, q3 = df["kwh"].quantile([0.25, 0.75])
