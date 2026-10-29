@@ -78,3 +78,17 @@ def test_transform_is_idempotent():
     # Second transform on already-transformed data should not error
     df2 = transformer.transform(df1)
     assert len(df2) == len(df1)
+
+
+def test_transformer_keeps_raw_reading_before_outlier_cleaning():
+    import pandas as pd
+
+    from voltedge.processing.transformer import EnergyTransformer
+
+    ts = pd.date_range("2026-01-01", periods=48, freq="h", tz="UTC")
+    kwh = [100.0] * 48
+    kwh[30] = 5000.0  # extreme spike the cleaner will interpolate away
+    df = pd.DataFrame({"timestamp": ts, "kwh": kwh})
+    out = EnergyTransformer().transform(df)
+    assert out.loc[30, "kwh_raw"] == 5000.0
+    assert out.loc[30, "kwh"] < 5000.0
