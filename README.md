@@ -53,7 +53,7 @@ VoltEdge gives energy managers and sustainability leads a single platform to:
 ### Setup
 
 ```bash
-git clone https://github.com/ShazMoghaddam/voltedge.git
+git clone https://github.com/Moghaddam-Labs/voltedge.git
 cd voltedge
 pip install -r requirements.txt
 pip install -e .
@@ -95,7 +95,7 @@ python3 -m pytest tests/ \
 
 ### Railway (recommended)
 
-1. Fork or push to your GitHub account at [github.com/ShazMoghaddam](https://github.com/ShazMoghaddam)
+1. The repo lives at [github.com/Moghaddam-Labs/voltedge](https://github.com/Moghaddam-Labs/voltedge)
 2. Connect repo to [Railway](https://railway.app)
 3. Railway auto-detects `railway.json` and deploys
 4. Optionally set `ANTHROPIC_API_KEY` in Railway environment variables
@@ -153,7 +153,8 @@ The anomaly detector is evaluated on 30 days of unseen data across all four site
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE)
+Proprietary. All rights reserved. The source is published for viewing only; see
+[LICENSE](LICENSE). For commercial licensing, get in touch.
 
 ---
 
