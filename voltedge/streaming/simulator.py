@@ -3,7 +3,7 @@ VoltEdge Streaming — Live Event Simulator
 
 Generates a continuous stream of realistic EnergyEvents at a configurable
 rate, publishing them to the broker's raw topics. Replaces the 60-second
-batch simulator with sub-second event generation for v5.0 real-time mode.
+batch simulator with sub-second event generation for real-time mode.
 
 Designed for:
   - Development without real IoT hardware
