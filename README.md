@@ -23,7 +23,7 @@ VoltEdge gives energy managers and sustainability leads a single platform to:
 
 ## Screenshots
 
-| Portfolio overview | ESG & carbon | AI assistant |
+| Portfolio and anomalies | ESG & carbon | AI assistant |
 |---|---|---|
 | ![Portfolio](docs/screenshots/portfolio.png) | ![ESG](docs/screenshots/esg.png) | ![AI](docs/screenshots/ai.png) |
 

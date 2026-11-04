@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from voltedge.streaming.broker import InMemoryBroker
 from voltedge.streaming.events import EventType
@@ -251,9 +252,17 @@ def test_simulator_high_kwh_on_anomaly():
 
 
 def test_simulator_deterministic_with_seed():
+    fixed_time = datetime(2026, 1, 15, 12, 0, tzinfo=timezone.utc)
+
     async def run(seed):
         broker = InMemoryBroker()
-        sim = LiveSimulator(broker, sites=["S1"], events_per_second=5, seed=seed)
+        sim = LiveSimulator(
+            broker,
+            sites=["S1"],
+            events_per_second=5,
+            seed=seed,
+            clock=lambda: fixed_time,
+        )
         received = []
 
         async def collect():

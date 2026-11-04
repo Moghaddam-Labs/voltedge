@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import math
 import random
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -57,6 +58,8 @@ class LiveSimulator:
         events_per_second: Tick rate per site (default 1 = one reading/sec).
         anomaly_prob:      Probability of injecting an anomaly spike (default 2%).
         seed:              Random seed for reproducibility (None = random).
+        clock:             Returns the current time. Fix it for repeatable readings,
+                           because demand follows the time of day.
     """
 
     def __init__(
@@ -67,6 +70,7 @@ class LiveSimulator:
         events_per_second: float = 1.0,
         anomaly_prob: float = 0.02,
         seed: int | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._broker = broker
         self._sites = sites
@@ -74,6 +78,7 @@ class LiveSimulator:
         self._eps = max(0.01, events_per_second)
         self._anom_p = anomaly_prob
         self._rng = random.Random(seed)
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._running = False
         self._tasks: list[asyncio.Task] = []
         self._counts: dict[str, int] = {s: 0 for s in sites}
@@ -126,7 +131,7 @@ class LiveSimulator:
         sequence: int,
     ) -> EnergyEvent:
         """Generate one synthetic energy reading."""
-        now = datetime.now(timezone.utc)
+        now = self._clock()
         h = now.hour + now.minute / 60.0
 
         # Demand profile: sinusoidal daily curve
