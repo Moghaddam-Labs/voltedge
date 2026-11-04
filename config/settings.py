@@ -38,7 +38,7 @@ class VoltEdgeSettings(BaseSettings):
 
     # ── Application ──────────────────────────────────────────────────────────
     app_name: str = "VoltEdge"
-    app_version: str = "1.0.0"
+    app_version: str = "0.1.0"
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = False
 

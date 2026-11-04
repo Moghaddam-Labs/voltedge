@@ -1,5 +1,5 @@
 """
-VoltEdge v5.0 — Live Dashboard WebSocket Client
+VoltEdge — Live Dashboard WebSocket Client
 
 Replaces the 60-second dcc.Interval polling with a WebSocket
 connection that receives events in real time and updates the

@@ -2,7 +2,7 @@
 
 # VoltEdge — Enterprise Energy Intelligence Platform
 
-> Real-time energy monitoring, ML anomaly detection, causal AI root-cause analysis, and CSRD-ready ESG reporting — built for multi-site industrial and commercial operations.
+> Real-time energy monitoring, ML anomaly detection, causal AI root-cause analysis, and ESG reporting that supports CSRD — built for multi-site industrial and commercial operations.
 
 **Built by [Shaz Moghaddam](https://shazmoghaddam.github.io) · [GitHub](https://github.com/ShazMoghaddam) · [LinkedIn](https://www.linkedin.com/in/shazmoghaddam/)**
 
@@ -15,7 +15,7 @@ VoltEdge gives energy managers and sustainability leads a single platform to:
 - **Monitor** energy consumption across all sites in real time
 - **Detect anomalies** automatically using an isolation-forest model trained on each site's baseline
 - **Explain anomalies** using a causal AI graph that identifies root causes with quantified causal strength scores
-- **Report** Scope 2 emissions (location and market-based), GRI 302-1, and carbon intensity — CSRD-compliant
+- **Report** Scope 2 emissions (location and market-based), GRI 302-1, and carbon intensity, to support CSRD reporting
 - **Ask questions** in plain English via the AI assistant ("What caused the spike on LONDON-FACTORY-01 last Thursday?")
 - **Export** consumption and emissions data as CSV for auditors and finance teams
 

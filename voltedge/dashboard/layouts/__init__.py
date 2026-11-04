@@ -952,7 +952,7 @@ def build_layout() -> html.Div:
                             html.Footer(
                                 [
                                     html.Div(
-                                        "VoltEdge v1.0.0  ·  Enterprise Energy Intelligence",
+                                        "VoltEdge v0.1.0  ·  Enterprise Energy Intelligence",
                                         style={"marginBottom": "3px"},
                                     ),
                                     html.Div(
