@@ -1,3 +1,5 @@
+![VoltEdge: energy monitoring, anomaly detection and ESG reporting](docs/assets/readme-banner.png)
+
 # VoltEdge — Enterprise Energy Intelligence Platform
 
 > Real-time energy monitoring, ML anomaly detection, causal AI root-cause analysis, and CSRD-ready ESG reporting — built for multi-site industrial and commercial operations.
